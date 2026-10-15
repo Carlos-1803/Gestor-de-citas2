@@ -1,0 +1,30 @@
+# C# / .NET (Backend)
+bin/
+obj/
+[Dd]ebug/
+[Rr]elease/
+*.user
+
+# Node / React (Frontend)
+node_modules/
+dist/
+dist-isolated/
+.env.local
+
+# Archivos de IDEs y editores
+.vs/
+.vscode/
+.idea/
+# Secrets and runtime data
+.env
+.env.*
+!.env.example
+BackEnd/appsettings.Local.json
+BackEnd/wwwroot/uploads/
+BackEnd/wwwroot/assets/
+BackEnd/wwwroot/index.html
+*.deb
+BackEnd/wwwroot/*
+!BackEnd/wwwroot/.gitkeep
+__pycache__/
+*.pyc

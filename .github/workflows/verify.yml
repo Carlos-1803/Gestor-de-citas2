@@ -1,0 +1,48 @@
+name: Verify web and MariaDB API
+on:
+  push:
+    branches: [master, 'codex/**']
+  pull_request:
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      mariadb:
+        image: mariadb:10.11
+        env:
+          MARIADB_ROOT_PASSWORD: test-root-only
+          MARIADB_DATABASE: gestor_test
+          MARIADB_USER: gestor
+          MARIADB_PASSWORD: test-only-password
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="healthcheck.sh --connect --innodb_initialized"
+          --health-interval=5s --health-timeout=5s --health-retries=20
+    env:
+      ConnectionStrings__Database: 'Server=127.0.0.1;Port=3306;Database=gestor_test;User=gestor;Password=test-only-password'
+      ASPNETCORE_ENVIRONMENT: Development
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: FrondEnd/package-lock.json
+      - run: npm --prefix FrondEnd ci
+      - run: npm --prefix FrondEnd run lint
+      - run: npm --prefix FrondEnd run build
+      - run: dotnet build BackEnd --configuration Release
+      - run: dotnet run --project BackEnd --configuration Release --no-build -- --migrate
+      - name: Integration checks
+        run: |
+          dotnet run --project BackEnd --configuration Release --no-build --no-launch-profile --urls http://127.0.0.1:5191 > /tmp/api.log 2>&1 &
+          API_PID=$!
+          trap 'kill "$API_PID" || true' EXIT
+          for attempt in $(seq 1 40); do
+            if curl -fsS http://127.0.0.1:5191/api/health; then break; fi
+            sleep 1
+          done
+          python tests/integration.py --url http://127.0.0.1:5191 || { cat /tmp/api.log; exit 1; }

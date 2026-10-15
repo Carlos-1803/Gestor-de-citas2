@@ -1,6 +1,17 @@
-@BackEnd_HostAddress = http://localhost:5185
+@BackEnd_HostAddress = http://localhost:5191
 
-GET {{BackEnd_HostAddress}}/weatherforecast/
+GET {{BackEnd_HostAddress}}/api/health
 Accept: application/json
 
 ###
+GET {{BackEnd_HostAddress}}/api/shops
+Accept: application/json
+
+###
+GET {{BackEnd_HostAddress}}/api/haircuts
+Accept: application/json
+
+###
+# For writes, keep the session cookie and send token as X-CSRF-TOKEN.
+GET {{BackEnd_HostAddress}}/api/auth/token
+Accept: application/json

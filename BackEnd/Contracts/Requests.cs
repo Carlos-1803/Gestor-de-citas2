@@ -1,0 +1,13 @@
+namespace BackEnd.Contracts;
+public record RegisterRequest(string Name, string Email, string Password, string Role);
+public record LoginRequest(string Email, string Password);
+public record ShopRequest(string Name, string Description, string Address, string Phone, double Latitude, double Longitude, string TimeZone);
+public record BarberRequest(string Name, bool Active);
+public record HaircutRequest(string Name, string Description, bool Active);
+public record OfferingRequest(int HaircutId, decimal Price, int Minutes, bool Active);
+public record PeriodRequest(int Day, int StartMinute, int EndMinute);
+public record BlockRequest(DateTimeOffset Start, DateTimeOffset End);
+public record ProductRequest(string Name, string Description, decimal Price, int Stock, bool Active);
+public record ItemRequest(int ProductId, int Quantity);
+public record BookingRequest(int OfferingId, DateTimeOffset Start, List<ItemRequest> Items);
+public record StatusRequest(string Status);
