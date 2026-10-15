@@ -1,122 +1,156 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
-
+import { useEffect, useState } from "react";
+import { api } from "./api";
+import "./App.css";
+import Auth from "./pages/Auth";
+import Explore from "./pages/Explore";
+import ShopDetail from "./pages/ShopDetail";
+import Bookings from "./pages/Bookings";
+import Manage from "./pages/Manage";
+import Catalog from "./pages/Catalog";
 function App() {
-  const [count, setCount] = useState(0)
-
+  const [user, setUser] = useState(null);
+  const [ready, setReady] = useState(false);
+  const [page, setPage] = useState("explore");
+  const [shopId, setShopId] = useState(null);
+  const [message, setMessage] = useState("");
+  const [auth, setAuth] = useState(false);
+  useEffect(() => {
+    api("/auth/me")
+      .then(setUser)
+      .catch((e) => setMessage(e.message))
+      .finally(() => setReady(true));
+  }, []);
+  function openShop(id) {
+    setShopId(id);
+    setPage("explore");
+  }
   return (
     <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
+      <header className="topbar">
         <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
+          className="brand"
+          onClick={() => {
+            setShopId(null);
+            setPage("explore");
+          }}
         >
-          Count is {count}
+          ✂{" "}
+          <span>
+            Entre<span className="gold">Cortes</span>
+            <small>BARBERÍAS · CITAS · ESTILO</small>
+          </span>
         </button>
-      </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
+        <nav aria-label="Navegación principal">
+          <button
+            className={page === "explore" ? "nav active" : "nav"}
+            onClick={() => {
+              setPage("explore");
+              setShopId(null);
+            }}
+          >
+            Explorar
+          </button>
+          {user && (
+            <button
+              className={page === "bookings" ? "nav active" : "nav"}
+              onClick={() => setPage("bookings")}
+            >
+              Mis citas
+            </button>
+          )}
+          {user?.role === "Barber" && (
+            <button
+              className={page === "manage" ? "nav active" : "nav"}
+              onClick={() => setPage("manage")}
+            >
+              Mi barbería
+            </button>
+          )}
+          {user?.role === "Admin" && (
+            <button className="nav" onClick={() => setPage("admin")}>
+              Catálogo
+            </button>
+          )}
+        </nav>
+        {user ? (
+          <div className="account">
+            <span>{user.name}</span>
+            <button
+              className="outline small"
+              onClick={async () => {
+                try {
+                  await api("/auth/logout", { method: "POST" });
+                  setUser(null);
+                  setPage("explore");
+                  setShopId(null);
+                } catch (e) {
+                  setMessage(e.message);
+                }
+              }}
+            >
+              Salir
+            </button>
+          </div>
+        ) : (
+          <button
+            className="primary small"
+            disabled={!ready}
+            onClick={() => setAuth(true)}
+          >
+            Entrar / Registrarme
+          </button>
+        )}
+      </header>
+      {message && (
+        <div role="alert" className="notice">
+          <span>{message}</span>
+          <button aria-label="Cerrar aviso" onClick={() => setMessage("")}>
+            ×
+          </button>
         </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
+      )}
+      <main>
+        {page === "explore" &&
+          (shopId ? (
+            <ShopDetail
+              key={shopId}
+              id={shopId}
+              user={user}
+              login={() => setAuth(true)}
+              back={() => setShopId(null)}
+              notify={setMessage}
+              booked={() => setPage("bookings")}
+            />
+          ) : (
+            <Explore open={openShop} notify={setMessage} />
+          ))}
+        {page === "bookings" && user && (
+          <Bookings user={user} notify={setMessage} />
+        )}
+        {page === "manage" && user?.role === "Barber" && (
+          <Manage open={openShop} notify={setMessage} />
+        )}
+        {page === "admin" && user?.role === "Admin" && (
+          <Catalog notify={setMessage} />
+        )}
+      </main>
+      <footer>
+        EntreCortes <span>Tu próximo corte, a tu tiempo.</span>
+        <small>Precios en MXN · Pago en el establecimiento</small>
+      </footer>
+      {auth && (
+        <Auth
+          close={() => setAuth(false)}
+          done={(u) => {
+            setUser(u);
+            setAuth(false);
+            setMessage("Sesión iniciada.");
+            if (u.role === "Barber") setPage("manage");
+          }}
+        />
+      )}
     </>
-  )
+  );
 }
 
-export default App
+export default App;
