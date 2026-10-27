@@ -50,6 +50,85 @@ EXIT;
 
 Si el servicio aún no tiene un directorio de datos inicializado, sigue primero la configuración inicial de MariaDB de tu distribución. No inicialices de nuevo una instalación que ya contenga datos.
 
+## Alternativa: implementar la base de datos en Windows con Laragon
+
+Esta sección sustituye los pasos 2 y 3 de Linux para quienes trabajan en Windows. Laragon administra el servidor MySQL o MariaDB; el backend sigue ejecutándose con .NET y el frontend con Vite.
+
+### 1. Preparar el entorno
+
+- Instala el SDK de .NET 8 y Node.js 24 con npm. Comprueba en PowerShell que `dotnet --version`, `node --version` y `npm.cmd --version` funcionan.
+- Abre Laragon e inicia su servicio MySQL o MariaDB. Comprueba qué motor y puerto tienes configurados; los ejemplos usan el puerto `3306`.
+- Puedes guardar el repositorio en cualquier carpeta: no necesita estar en `C:\laragon\www` ni usar Apache para este flujo.
+
+### 2. Crear la base y el usuario
+
+Abre **Terminal** desde Laragon para tener disponible el cliente de MySQL y ejecuta:
+
+```text
+mysql -h localhost -P 3306 -u root -p
+```
+
+Introduce la contraseña administrativa de tu instalación. Si esa cuenta está configurada sin contraseña, pulsa Enter cuando la solicite. También puedes ejecutar el siguiente SQL desde el cliente de bases de datos que tengas conectado a Laragon, usando una cuenta con permisos para crear bases y usuarios.
+
+Sustituye `CAMBIA_ESTA_CONTRASENA` por una contraseña propia y ejecuta:
+
+```sql
+SELECT VERSION();
+CREATE DATABASE gestor_citas CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+CREATE USER 'gestor'@'localhost' IDENTIFIED BY 'CAMBIA_ESTA_CONTRASENA';
+GRANT ALL PRIVILEGES ON gestor_citas.* TO 'gestor'@'localhost';
+```
+
+Estos comandos son para una instalación nueva. Si la base o el usuario ya existen, conserva sus datos y utiliza sus credenciales; no es necesario eliminarlos ni crearlos de nuevo. Si estás en la consola `mysql`, sal con `exit;` antes de continuar.
+
+### 3. Conectar el backend y aplicar las migraciones
+
+Abre **PowerShell en la raíz del repositorio**, donde están `BackEnd` y `FrondEnd`. Configura la misma contraseña y el puerto de Laragon:
+
+```powershell
+$env:ConnectionStrings__Database = 'Server=localhost;Port=3306;Database=gestor_citas;User=gestor;Password=CAMBIA_ESTA_CONTRASENA'
+$env:ASPNETCORE_ENVIRONMENT = 'Development'
+
+dotnet restore .\BackEnd
+dotnet run --project .\BackEnd -- --migrate
+```
+
+`--migrate` crea las tablas mediante las migraciones de EF Core, carga el catálogo inicial de cortes y termina. No necesitas importar un archivo `.sql` ni crear las tablas a mano. Las variables `$env:` solo se aplican a esa sesión de PowerShell y sus procesos: vuelve a configurarlas si abres otra terminal para el backend. No guardes contraseñas reales en archivos versionados.
+
+Para comprobar el resultado, ejecuta en el cliente SQL de Laragon:
+
+```sql
+USE gestor_citas;
+SHOW TABLES;
+SELECT MigrationId FROM __EFMigrationsHistory;
+SELECT COUNT(*) AS cortes_iniciales FROM Haircuts;
+```
+
+En una base nueva deben aparecer las tablas de la aplicación, la migración inicial y veinte cortes.
+
+### 4. Ejecutar y comprobar la aplicación
+
+En la misma PowerShell donde configuraste la conexión:
+
+```powershell
+dotnet run --project .\BackEnd
+```
+
+En una segunda PowerShell, desde la raíz del repositorio:
+
+```powershell
+npm.cmd --prefix .\FrondEnd ci
+npm.cmd --prefix .\FrondEnd run dev
+```
+
+Abre la URL que indique Vite, normalmente `http://localhost:5173`. Para comprobar también la consulta a la base de datos, abre `http://localhost:5191/api/haircuts`: debe devolver el catálogo en JSON. Después puedes seguir el apartado **5. Probar el flujo** de este README.
+
+Si falla la conexión, comprueba que el servicio de Laragon esté iniciado y que coincidan el puerto, la base, el usuario y la contraseña. `Access denied` indica un problema de credenciales o permisos; `Unknown database` indica que la base todavía no existe en ese servidor. Si PowerShell bloquea `npm.ps1`, utiliza `npm.cmd` como en los ejemplos.
+
+El proyecto ya utiliza Pomelo con detección automática de la versión del servidor. La verificación previa se realizó con MariaDB 10.11.14; la instalación concreta de Windows/Laragon, especialmente si utiliza MySQL, debe comprobarse con las migraciones y el flujo de reservas antes de desplegarla.
+
+Referencias: [terminal y entorno de Laragon](https://laragon.org/docs/isolated), [creación de usuarios y permisos en MySQL](https://dev.mysql.com/doc/mysql-security-excerpt/8.0/en/creating-accounts.html).
+
 ## 3. Configurar y migrar
 
 En una terminal Bash, desde la raíz del repositorio:
