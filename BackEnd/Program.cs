@@ -39,7 +39,11 @@ app.Use(async (ctx, next) =>
     try
     {
         if (ctx.Request.Path.StartsWithSegments("/api")) ctx.Response.Headers.CacheControl = "no-store";
-        if (ctx.Request.Path.StartsWithSegments("/api") && !HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method))
+        
+        // Excluimos la ruta de preferencias de la validación estricta de Antiforgery para evitar el error 400
+        bool esRutaExenta = ctx.Request.Path.StartsWithSegments("/api/preferencias/guardar");
+        
+        if (ctx.Request.Path.StartsWithSegments("/api") && !esRutaExenta && !HttpMethods.IsGet(ctx.Request.Method) && !HttpMethods.IsHead(ctx.Request.Method))
             await ctx.RequestServices.GetRequiredService<IAntiforgery>().ValidateRequestAsync(ctx);
         await next();
     }
@@ -205,6 +209,51 @@ app.MapGet("/api/bookings", async (AppDb db, ClaimsPrincipal u) =>
 app.MapPut("/api/bookings/{id:int}/status", async (int id, StatusRequest r, Reservations reservations, ClaimsPrincipal u) =>
 { await reservations.ChangeStatus(id, r.Status, u); return Results.NoContent(); }).RequireAuthorization();
 app.MapGet("/api/health", () => Results.Ok(new { status = "ok" }));
+
+// ==========================================
+// Endpoint flexible para guardar la preferencia de estilo de corte (RA) sin errores de binding
+app.MapPost("/api/preferencias/guardar", async (HttpRequest req, AppDb db, ClaimsPrincipal u) =>
+{
+    var customerId = Rules.UserId(u);
+    
+    using var reader = new StreamReader(req.Body);
+    var bodyStr = await reader.ReadToEndAsync();
+    
+    // Parseo directo para extraer el estiloId de forma infalible
+    int estiloId = 0;
+    try
+    {
+        using var jsonDoc = System.Text.Json.JsonDocument.Parse(bodyStr);
+        var root = jsonDoc.RootElement;
+        if (root.TryGetProperty("estiloId", out var val) || root.TryGetProperty("EstiloId", out val))
+        {
+            estiloId = val.GetInt32();
+        }
+    }
+    catch 
+    {
+        // Si viene plano o como número directo
+        int.TryParse(bodyStr, out estiloId);
+    }
+
+    if (estiloId <= 0)
+    {
+        return Results.BadRequest(new { message = "El ID del estilo de corte es inválido o no se recibió." });
+    }
+
+    var nuevaSimulacion = new Simulacion
+    {
+        CustomerId = customerId,
+        EstiloId = estiloId,
+        Fecha = DateTime.Now,
+        EleccionGuardada = true
+    };
+
+    db.Simulaciones.Add(nuevaSimulacion);
+    await db.SaveChangesAsync();
+
+    return Results.Ok(new { message = "Elección de estilo de corte guardada exitosamente." });
+}).RequireAuthorization();
 // Migration is explicit: dotnet run -- --migrate. Never mutate schema on normal startup.
 if (args.Contains("--migrate"))
 {

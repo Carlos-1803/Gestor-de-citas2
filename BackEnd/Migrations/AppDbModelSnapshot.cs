@@ -353,6 +353,33 @@ namespace BackEnd.Migrations
                     b.ToTable("ShopPhotos");
                 });
 
+            modelBuilder.Entity("BackEnd.Data.Simulacion", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CustomerId")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("EleccionGuardada")
+                        .HasColumnType("tinyint(1)");
+
+                    b.Property<int>("EstiloId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("Fecha")
+                        .HasColumnType("datetime(6)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CustomerId");
+
+                    b.ToTable("Simulaciones");
+                });
+
             modelBuilder.Entity("BackEnd.Data.User", b =>
                 {
                     b.Property<int>("Id")
@@ -523,6 +550,17 @@ namespace BackEnd.Migrations
                         .IsRequired();
 
                     b.Navigation("Shop");
+                });
+
+            modelBuilder.Entity("BackEnd.Data.Simulacion", b =>
+                {
+                    b.HasOne("BackEnd.Data.User", "Customer")
+                        .WithMany()
+                        .HasForeignKey("CustomerId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Customer");
                 });
 
             modelBuilder.Entity("BackEnd.Data.WorkPeriod", b =>

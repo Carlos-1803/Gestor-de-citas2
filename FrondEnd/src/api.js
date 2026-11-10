@@ -7,19 +7,42 @@ export async function api(path, options = {}) {
     csrf = (await res.json()).token;
   }
   const form = options.body instanceof FormData;
-  const res = await fetch("/api" + path, {
+  
+  let res = await fetch("/api" + path, {
     ...options,
     headers: {
       ...(form ? {} : { "Content-Type": "application/json" }),
       ...(method === "GET" ? {} : { "X-CSRF-TOKEN": csrf }),
       ...options.headers,
     },
-    body: options.body
+   body: options.body
       ? form
         ? options.body
-        : JSON.stringify(options.body)
+        : (typeof options.body === "string" ? options.body : JSON.stringify(options.body))
       : undefined,
   });
+
+  // Si el servidor rechaza por token CSRF inválido o caducado, lo renovamos y reintentamos una vez
+  if (res.status === 400 && method !== "GET") {
+    const tokenRes = await fetch("/api/auth/token");
+    if (tokenRes.ok) {
+      csrf = (await tokenRes.json()).token;
+      res = await fetch("/api" + path, {
+        ...options,
+        headers: {
+          ...(form ? {} : { "Content-Type": "application/json" }),
+          "X-CSRF-TOKEN": csrf,
+          ...options.headers,
+        },
+        body: options.body
+          ? form
+            ? options.body
+            : JSON.stringify(options.body)
+          : undefined,
+      });
+    }
+  }
+
   if (!res.ok) {
     const error = await res.json().catch(() => ({}));
     throw new Error(
@@ -37,6 +60,7 @@ export async function api(path, options = {}) {
   const text = await res.text();
   return text ? JSON.parse(text) : null;
 }
+
 export const money = (value) =>
   new Intl.NumberFormat("es-MX", { style: "currency", currency: "MXN" }).format(
     value,

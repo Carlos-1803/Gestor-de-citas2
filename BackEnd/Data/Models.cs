@@ -9,6 +9,7 @@ public class User
     public string PasswordHash { get; set; } = "";
     public string Role { get; set; } = "Client";
 }
+
 public class Shop
 {
     public int Id { get; set; }
@@ -22,6 +23,7 @@ public class Shop
     public double Longitude { get; set; }
     public string TimeZone { get; set; } = "America/Merida";
 }
+
 public class ShopPhoto
 {
     public int Id { get; set; }
@@ -30,6 +32,7 @@ public class ShopPhoto
     public string Url { get; set; } = "";
     public string Kind { get; set; } = "Exterior";
 }
+
 public class Barber
 {
     public int Id { get; set; }
@@ -38,6 +41,7 @@ public class Barber
     public string Name { get; set; } = "";
     public bool Active { get; set; } = true;
 }
+
 public class Haircut
 {
     public int Id { get; set; }
@@ -45,6 +49,7 @@ public class Haircut
     public string Description { get; set; } = "";
     public bool Active { get; set; } = true;
 }
+
 public class Offering
 {
     public int Id { get; set; }
@@ -56,6 +61,7 @@ public class Offering
     public int Minutes { get; set; }
     public bool Active { get; set; } = true;
 }
+
 public class WorkPeriod
 {
     public int Id { get; set; }
@@ -65,6 +71,7 @@ public class WorkPeriod
     public int StartMinute { get; set; }
     public int EndMinute { get; set; }
 }
+
 public class Block
 {
     public int Id { get; set; }
@@ -73,6 +80,7 @@ public class Block
     public DateTime StartUtc { get; set; }
     public DateTime EndUtc { get; set; }
 }
+
 public class Product
 {
     public int Id { get; set; }
@@ -84,6 +92,7 @@ public class Product
     public int Stock { get; set; }
     public bool Active { get; set; } = true;
 }
+
 public class Booking
 {
     public int Id { get; set; }
@@ -99,6 +108,7 @@ public class Booking
     public decimal Total { get; set; }
     public List<BookingItem> Items { get; set; } = [];
 }
+
 public class BookingItem
 {
     public int Id { get; set; }
@@ -110,6 +120,7 @@ public class BookingItem
     public int Quantity { get; set; }
     public decimal UnitPrice { get; set; }
 }
+
 public class MailJob
 {
     public int Id { get; set; }
@@ -120,6 +131,18 @@ public class MailJob
     public DateTime NextAttemptUtc { get; set; }
     public int Attempts { get; set; }
 }
+
+// NUEVO MODELO INDEPENDIENTE PARA LA REALIDAD AUMENTADA
+public class Simulacion
+{
+    public int Id { get; set; }
+    public int CustomerId { get; set; } // Relación con User (Cliente)
+    public User Customer { get; set; } = null!;
+    public int EstiloId { get; set; }  // ID del estilo de corte elegido (1, 2 o 3)
+    public DateTime Fecha { get; set; } = DateTime.Now;
+    public bool EleccionGuardada { get; set; } = true;
+}
+
 public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
 {
     public DbSet<User> Users => Set<User>();
@@ -133,6 +156,10 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     public DbSet<Product> Products => Set<Product>();
     public DbSet<Booking> Bookings => Set<Booking>();
     public DbSet<MailJob> MailJobs => Set<MailJob>();
+    
+    // AQUÍ AGREGAMOS EL DbSet PARA QUE SE RECONOZCA LA TABLA EN MYSQL
+    public DbSet<Simulacion> Simulaciones => Set<Simulacion>();
+
     protected override void OnModelCreating(ModelBuilder m)
     {
         m.UseCollation("utf8mb4_unicode_ci");

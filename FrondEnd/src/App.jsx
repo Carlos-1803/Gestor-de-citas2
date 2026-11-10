@@ -7,6 +7,9 @@ import ShopDetail from "./pages/ShopDetail";
 import Bookings from "./pages/Bookings";
 import Manage from "./pages/Manage";
 import Catalog from "./pages/Catalog";
+// Importación del componente de Realidad Aumentada (RA)
+import { SimulacionView } from "./components/Simulacion/SimulacionView";
+
 function App() {
   const [user, setUser] = useState(null);
   const [ready, setReady] = useState(false);
@@ -14,16 +17,19 @@ function App() {
   const [shopId, setShopId] = useState(null);
   const [message, setMessage] = useState("");
   const [auth, setAuth] = useState(false);
+
   useEffect(() => {
     api("/auth/me")
       .then(setUser)
       .catch((e) => setMessage(e.message))
       .finally(() => setReady(true));
   }, []);
+
   function openShop(id) {
     setShopId(id);
     setPage("explore");
   }
+
   return (
     <>
       <header className="topbar">
@@ -50,6 +56,18 @@ function App() {
           >
             Explorar
           </button>
+
+          {/* Botón de navegación para acceder a la previsualización por Realidad Aumentada (RF-09, RF-12) */}
+          <button
+            className={page === "simulacion" ? "nav active" : "nav"}
+            onClick={() => {
+              setPage("simulacion");
+              setShopId(null);
+            }}
+          >
+            Simulador RA
+          </button>
+
           {user && (
             <button
               className={page === "bookings" ? "nav active" : "nav"}
@@ -124,6 +142,10 @@ function App() {
           ) : (
             <Explore open={openShop} notify={setMessage} />
           ))}
+
+        {/* Renderizado condicional de la vista de Realidad Aumentada */}
+        {page === "simulacion" && <SimulacionView />}
+
         {page === "bookings" && user && (
           <Bookings user={user} notify={setMessage} />
         )}

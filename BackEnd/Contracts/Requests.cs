@@ -11,3 +11,11 @@ public record ProductRequest(string Name, string Description, decimal Price, int
 public record ItemRequest(int ProductId, int Quantity);
 public record BookingRequest(int OfferingId, DateTimeOffset Start, List<ItemRequest> Items);
 public record StatusRequest(string Status);
+
+// Objeto que recibe los datos de la PWA al guardar la simulación de corte
+    public class GuardarSimulacionRequest
+    {
+        public int EstiloId { get; set; }
+        public int CustomerId { get; set; }
+    }
+

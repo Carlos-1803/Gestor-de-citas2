@@ -1,0 +1,322 @@
+
+/* ===== SIMULADOR ENTRECORTES ===== */
+
+.simulador-container {
+  min-height: 100vh;
+  padding: 35px 25px;
+  color: #292722;
+  background: #f6f4ef;
+  font-family: inherit;
+  box-sizing: border-box;
+}
+
+.simulador-container * {
+  box-sizing: border-box;
+}
+
+/* ===== ENCABEZADO ===== */
+
+.simulador-header {
+  max-width: 1000px;
+  margin: 0 auto 30px;
+}
+
+.simulador-etiqueta {
+  color: #a9854e;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 4px;
+}
+
+.simulador-header h1 {
+  margin: 12px 0;
+  color: #292722;
+  font-size: clamp(28px, 4vw, 42px);
+  font-weight: 700;
+}
+
+.simulador-header p,
+.simulador-panel > p {
+  color: #77736b;
+  line-height: 1.6;
+}
+
+/* ===== DISTRIBUCIÓN PRINCIPAL ===== */
+
+.simulador-layout {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 25px;
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+}
+
+/* ===== CÁMARA ===== */
+
+.simulador-camara {
+  position: relative;
+  width: 100%;
+  max-width: 900px;
+  aspect-ratio: 16 / 9;
+  min-height: 0;
+  overflow: hidden;
+  border: 1px solid #e4dfd5;
+  border-radius: 16px;
+  background: #e9e5dc;
+  box-shadow: 0 5px 20px rgba(40, 35, 25, 0.06);
+}
+
+.simulador-video,
+.simulador-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.simulador-video {
+  object-fit: contain;
+  object-position: center;
+  transform: scaleX(-1);
+  background: #e9e5dc;
+}
+
+.simulador-canvas {
+  z-index: 2;
+  pointer-events: none;
+}
+
+/* ===== PANTALLA DE INICIO ===== */
+
+.simulador-inicio {
+  position: absolute;
+  z-index: 3;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 25px;
+  text-align: center;
+  background: rgba(246, 244, 239, 0.94);
+}
+
+.simulador-icono {
+  margin-bottom: 15px;
+  color: #ae8951;
+  font-size: 45px;
+}
+
+.simulador-inicio h2 {
+  margin: 0 0 10px;
+  color: #292722;
+  font-size: 25px;
+}
+
+.simulador-inicio p {
+  color: #77736b;
+  line-height: 1.5;
+}
+
+.simulador-boton {
+  margin-top: 18px;
+  padding: 13px 25px;
+  border: 1px solid #a9854e;
+  border-radius: 7px;
+  color: #fff;
+  background: #a9854e;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.simulador-boton:hover {
+  border-color: #8d6c3d;
+  background: #8d6c3d;
+}
+
+.simulador-boton:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* ===== ESTADO DE LA CÁMARA ===== */
+
+.simulador-estado {
+  position: absolute;
+  z-index: 4;
+  right: 15px;
+  bottom: 15px;
+  left: 15px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 12px 15px;
+  border: 1px solid #e7e1d6;
+  border-radius: 8px;
+  color: #37332c;
+  background: rgba(255, 255, 255, 0.92);
+  font-size: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.punto-activo,
+.punto-inactivo {
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  border-radius: 50%;
+}
+
+.punto-activo {
+  background: #43a76c;
+  box-shadow: 0 0 7px rgba(67, 167, 108, 0.4);
+}
+
+.punto-inactivo {
+  background: #aaa397;
+}
+
+/* ===== PANEL DE CORTES ===== */
+
+.simulador-panel {
+  width: 100%;
+  max-width: 900px;
+  padding: 25px;
+  border: 1px solid #e8e3d9;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 5px 20px rgba(40, 35, 25, 0.05);
+}
+
+.simulador-panel h2 {
+  margin-top: 0;
+  color: #292722;
+  font-size: 21px;
+}
+
+.simulador-cortes {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 15px;
+  margin-top: 22px;
+}
+
+.simulador-corte {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+  padding: 18px;
+  border: 1px solid #e8e3d9;
+  border-radius: 9px;
+  color: #37332c;
+  background: #faf9f6;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.simulador-corte:hover {
+  border-color: #c8ad83;
+  background: #f6f1e8;
+}
+
+.simulador-corte.seleccionado {
+  border-color: #ae8951;
+  background: #f5efe5;
+  box-shadow: 0 0 0 1px rgba(174, 137, 81, 0.12);
+}
+
+.corte-nombre {
+  color: #302c25;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.corte-descripcion {
+  color: #827c71;
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+/* ===== NOTA INFORMATIVA ===== */
+
+.simulador-nota {
+  margin-top: 25px;
+  padding: 15px;
+  border-left: 3px solid #ae8951;
+  border-radius: 4px;
+  background: #f7f4ee;
+}
+
+.simulador-nota strong {
+  color: #967442;
+  font-size: 13px;
+}
+
+.simulador-nota p {
+  margin-bottom: 0;
+  color: #777166;
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 800px) {
+  .simulador-container {
+    padding: 25px 16px;
+  }
+
+  .simulador-header {
+    margin-bottom: 22px;
+  }
+
+  .simulador-layout {
+    gap: 20px;
+  }
+
+  .simulador-camara {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+  }
+
+  .simulador-cortes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 480px) {
+  .simulador-container {
+    padding: 20px 12px;
+  }
+
+  .simulador-camara {
+    aspect-ratio: 16 / 9;
+    border-radius: 10px;
+  }
+
+  .simulador-panel {
+    padding: 18px;
+  }
+
+  .simulador-cortes {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+
+  .simulador-corte {
+    padding: 15px;
+  }
+
+  .simulador-estado {
+    right: 8px;
+    bottom: 8px;
+    left: 8px;
+    padding: 9px 11px;
+  }
+}
