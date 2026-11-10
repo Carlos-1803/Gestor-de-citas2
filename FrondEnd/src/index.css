@@ -125,51 +125,81 @@ section {
 ::selection {
   background: #e4cba4;
 }
-/* --- Corrección: Solo textos y acentos en dorado, sin cuadros sólidos --- */
+/* --- Paleta Ejecutiva Unificada (EntreCortes) --- */
 
-/* 1. Limpiamos el fondo general de la cabecera por si acaso */
+/* 1. Fondo general neutro, limpio y profesional (Blanco Cálido / Marfil Suave) */
+body, header, nav {
+  background-color: #F9F9F6 !important;
+  color: #1A232A !important;
+  font-family: inherit;
+}
+
+/* 2. Barra de navegación limpia y elegante */
 header, nav {
-  background-color: transparent !important;
+  background-color: #FFFFFF !important;
+  border-bottom: 1px solid #E5E7EB !important;
 }
 
-/* 2. Hacemos que los enlaces del menú y el nombre tengan texto dorado y sin fondo */
+/* 3. Enlaces del menú y textos de navegación */
 nav a, .logo, a {
-  color: #d4af37 !important;
+  color: #1A232A !important;
   background-color: transparent !important;
+  font-weight: 500;
 }
 
-/* 3. Quitamos el fondo amarillo de los botones y dejamos solo el texto dorado y sutil borde */
-button, .btn-primary {
+/* 4. Botón secundario minimalista (Explorar) */
+button, .btn-secondary {
   background-color: transparent !important;
-  color: #d4af37 !important;
-  border: 1px solid rgba(212, 175, 55, 0.4) !important;
-  border-radius: 6px !important;
-  font-weight: 500 !important;
+  color: #2D4A3E !important; /* Verde bosque elegante */
+  border: 1px solid #2D4A3E !important;
+  border-radius: 8px !important;
+  padding: 8px 18px !important;
+  font-weight: 600 !important;
+  transition: all 0.2s ease-in-out !important;
 }
 
-/* Efecto elegante al pasar el cursor por encima de los botones */
-button:hover, .btn-primary:hover {
-  background-color: rgba(212, 175, 55, 0.1) !important;
-  border-color: #d4af37 !important;
+button:hover, .btn-secondary:hover {
+  background-color: #2D4A3E !important;
+  color: #FFFFFF !important;
 }
 
-/* 4. Aseguramos que los íconos o vectores lleven el dorado correcto */
-svg, path {
-  fill: #d4af37 !important;
-  stroke: #d4af37 !important;
-}
-/* 1. Títulos principales sobre fondo oscuro (como Barberías para ti, Mi barbería) */
-main h1, main h2 {
-  color: #d4af37 !important;
-}
-
-/* 2. Textos SOLO dentro de elementos que tienen fondo blanco explícito */
-.bg-white, .bg-white h1, .bg-white h2, .bg-white h3, .bg-white h4, .bg-white p, .bg-white span {
-  color: #1a1a1a !important;
-  opacity: 1 !important;
+/* 5. Botón principal destacado (Entrar / Registrarme) */
+.bg-blue-600, [type="submit"], .btn-primary {
+  background-color: #2D4A3E !important; /* Fondo verde bosque coincidente con la marca */
+  color: #FFFFFF !important;
+  border: none !important;
+  border-radius: 8px !important;
+  padding: 8px 18px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+  transition: all 0.2s ease-in-out !important;
 }
 
-/* 3. Botones dorados dentro de las tarjetas blancas */
-.bg-white button, .bg-white button span {
-  color: #d4af37 !important;
+.bg-blue-600:hover, [type="submit"]:hover, .btn-primary:hover {
+  background-color: #1E332B !important;
+  transform: translateY(-1px);
+}
+
+/* 6. Títulos principales y tipografía */
+main h1, main h2, main h3, h1, h2, h3 {
+  color: #1A232A !important;
+}
+
+/* 7. Input de búsqueda y campos de texto */
+input[type="text"], input[type="search"] {
+  background-color: #FFFFFF !important;
+  border: 1px solid #D1D5DB !important;
+  color: #1A232A !important;
+  border-radius: 8px !important;
+}
+
+input[type="text"]:focus, input[type="search"]:focus {
+  border-color: #2D4A3E !important;
+  outline: none !important;
+}
+
+/* 8. Tarjetas y contenedores */
+.bg-white {
+  background-color: #FFFFFF !important;
+  border: 1px solid #E5E7EB !important;
 }
