@@ -95,6 +95,19 @@ dotnet run --project .\BackEnd -- --migrate
 
 `--migrate` crea las tablas mediante las migraciones de EF Core, carga el catálogo inicial de cortes y termina. No necesitas importar un archivo `.sql` ni crear las tablas a mano. Las variables `$env:` solo se aplican a esa sesión de PowerShell y sus procesos: vuelve a configurarlas si abres otra terminal para el backend. No guardes contraseñas reales en archivos versionados.
 
+
+**Alternativa para la terminal CMD de Laragon (Windows):**
+
+Si utilizas la terminal CMD de Laragon con MySQL en el puerto 3306, la base de datos `gestor_citas` y el usuario `root` sin contraseña, ejecuta:
+
+```cmd
+set "ConnectionStrings__Database=Server=localhost;Port=3306;Database=gestor_citas;User=root;Password="
+dotnet run --project .
+```
+
+Este comando debe ejecutarse desde la carpeta `BackEnd`. La variable solo permanece configurada mientras la terminal siga abierta. Si abres otra terminal, debes configurarla nuevamente.
+
+
 Para comprobar el resultado, ejecuta en el cliente SQL de Laragon:
 
 ```sql
