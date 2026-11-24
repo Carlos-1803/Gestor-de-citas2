@@ -2,14 +2,16 @@ import { useCallback, useEffect, useState } from "react";
 import { api } from "../api";
 import Field from "../components/Field";
 function Catalog({ notify }) {
-  const [cuts, setCuts] = useState([
-    { id: 1, name: "Mid Taper Fade", description: "Desvanecido medio con acabado limpio", active: true },
-    { id: 2, name: "Textured Crop", description: "Corte texturizado en la parte superior", active: true },
-    { id: 3, name: "Pompadour Clásico", description: "Estilo elegante hacia atrás con volumen", active: true }
-  ]);
+  const [cuts, setCuts] = useState([]);
   const [busy, setBusy] = useState(false);
-  const load = useCallback(() => {}, []);
-  useEffect(() => {}, []);
+  const load = useCallback(() => api("/haircuts").then(setCuts), []);
+  useEffect(() => {
+    let cancelled = false;
+    api("/haircuts")
+      .then((data) => { if (!cancelled) setCuts(data); })
+      .catch((error) => { if (!cancelled) notify(error.message); });
+    return () => { cancelled = true; };
+  }, [notify]);
   async function save(e, id) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);

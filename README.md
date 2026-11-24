@@ -194,6 +194,16 @@ python tests/integration.py --url http://localhost:5191
 
 La prueba usa solo la biblioteca estándar de Python, crea sus propias cuentas y barberías y comprueba autenticación, CSRF, permisos, catálogo compartido, horarios, reservas simultáneas, sobreventa, cancelación, precios históricos, bloqueos y fotos. No ejecutarla sobre una base de producción. El flujo de CI repite estas pruebas con MariaDB.
 
+### Corrección de la comprobación de GitHub (24 de noviembre de 2026)
+
+La [ejecución del commit `9f9012a`](https://github.com/Carlos-1803/Gestor-de-citas2/actions/runs/45423322603) falló en `npm --prefix FrondEnd run lint`: `Catalog.jsx` declaraba `setCuts` sin utilizarlo. El catálogo de administración tenía tres cortes de ejemplo y una función de carga vacía.
+
+Se sustituyeron los ejemplos por la consulta a `GET /api/haircuts` y se utiliza esa misma ruta para refrescar la lista después de crear o editar un corte. Los errores de carga se muestran mediante el aviso de la aplicación.
+
+Verificación de la corrección: ESLint y compilación del frontend correctos; compilación Release del backend sin errores ni advertencias. Las dos migraciones y las pruebas de integración se verificaron en una base desechable `gestor_ci` sobre MariaDB 13.0.2. El flujo remoto utiliza MariaDB 10.11 y debe volver a ejecutarse al subir el nuevo commit. El aviso de Vite sobre el tamaño del JavaScript es una advertencia y no fue la causa del fallo de GitHub. Esta corrección no incorpora cambios PWA.
+
+Incidencia durante la validación: la primera ejecución alcanzó la instancia local del puerto 3306 y generó datos de ejemplo del script de integración (cuentas `@example.test`, una barbería `Integration …` y sus reservas/productos de prueba). Se detuvo ese proceso y se repitió la comprobación con el destino temporal fijado explícitamente por argumento. No se eliminaron registros de la instancia local para evitar borrar datos ajenos a la prueba.
+
 ## Plan de implementación de la PWA
 
 **Estado: planificación; todavía no implementada.** La revisión del código encontró React 19, Vite 8, API ASP.NET Core, sesión con cookie HttpOnly y protección CSRF. No hay manifiesto PWA ni service worker registrado. El backend ya sirve archivos estáticos y tiene fallback a `index.html`.
