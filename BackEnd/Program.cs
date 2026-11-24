@@ -14,7 +14,7 @@ using MySqlConnector;
 
 var builder = WebApplication.CreateBuilder(args);
 var connection = builder.Configuration.GetConnectionString("Database")
-    ?? throw new InvalidOperationException("Configura ConnectionStrings__Database (ver README.md).");
+    ?? throw new InvalidOperationException("Configura ConnectionStrings:Database en appsettings.json (ver README.md).");
 builder.Services.AddDbContext<AppDb>(o => o.UseMySql(connection, ServerVersion.AutoDetect(connection)));
 builder.Services.AddScoped<Reservations>();
 builder.Services.AddHostedService<MailWorker>();
