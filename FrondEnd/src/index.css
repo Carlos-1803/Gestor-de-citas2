@@ -220,3 +220,16 @@ main button:hover, main .btn-primary:hover, .bg-blue-600:hover {
   border-color: #D4AF37 !important;
   color: #FFF8DC !important;
 }
+.hero-media {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hero-logo-full {
+  width: 100%;
+  max-width: 340px;
+  height: auto;
+  display: block;
+  border-radius: 16px;
+}

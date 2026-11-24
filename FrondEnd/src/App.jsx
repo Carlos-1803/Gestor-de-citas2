@@ -42,7 +42,7 @@ function App() {
         >
           ✂{" "}
           <span>
-            Entre<span className="gold">Cortes</span>
+            K'iin <span className="gold">BARBER</span>
             <small>BARBERÍAS · CITAS · ESTILO</small>
           </span>
         </button>

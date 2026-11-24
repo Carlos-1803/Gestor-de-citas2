@@ -32,16 +32,10 @@ function Explore({ open, notify }) {
             Encuentra tu barbería ↗
           </a>
         </div>
-        <div className="hero-art" aria-hidden="true">
-          <span className="ring" />
-          <span className="scissors">✂</span>
-          <span className="art-label">
-            EL DETALLE
-            <br />
-            HACE EL ESTILO.
-          </span>
-          <span className="art-number">01 / TU MOMENTO</span>
-        </div>
+       <div className="hero-media">
+  <img src="/logo-kiin.png" alt="Logo K'iin Barber" className="hero-logo-full" />
+</div>
+        
       </section>
       <section id="barberias">
         <div className="section-head">
