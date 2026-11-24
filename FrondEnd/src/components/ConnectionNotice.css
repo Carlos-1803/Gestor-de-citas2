@@ -1,0 +1,10 @@
+.connection-notice:not(:empty) {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: 0.65rem 1rem;
+  background: #fff2ca;
+  color: #422f0c;
+  text-align: center;
+  font-weight: 600;
+}
