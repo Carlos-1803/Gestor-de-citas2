@@ -1,4 +1,3 @@
-
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import * as THREE from "three";
@@ -22,39 +21,59 @@ import "./simulacion.css";
 
 const CORTES = [
   {
-    id: "buzz-cut",
-    nombre: "Buzz Cut",
-    descripcion: "Corte corto y uniforme.",
+    id: "corte-clasico",
+    nombre: "Corte clásico",
+    descripcion: "Peinado clásico con volumen superior y textura.",
   },
   {
-    id: "mullet",
-    nombre: "Mullet",
-    descripcion: "Corto adelante y largo atrás.",
-  },
-  {
-    id: "mid-fade",
-    nombre: "Mid Fade",
-    descripcion: "Degradado medio.",
+    id: "corte-texturizado",
+    nombre: "Corte texturizado",
+    descripcion: "Capas marcadas con textura en la parte superior.",
   },
 ];
 
-// Ajustes generales de visualización.
+// Escala uniforme para preservar la forma original del .glb
 const AJUSTES = {
-  // Menor valor = rostro visualmente más pequeño.
-  zoomCamara: 0.82,
+  escalaRelativaRostro: 1.24,
+  offsetFrenteY: 0.02,
+  posicionZ: 1,
 
-  // Tamaño del cabello respecto al ancho facial.
-  anchoCabello: 0.49,
-  altoCabello: 0.39,
-  profundidadCabello: 0.43,
-
-  // Posición vertical del cabello respecto a la frente.
-  posicionVertical: 0.10,
-
-  // Suavizado del movimiento.
-  suavizadoPosicion: 0.20,
-  suavizadoEscala: 0.14,
+  suavizadoPosicion: 0.55,
+  suavizadoEscala: 0.35,
+  suavizadoRotacion: 0.45,
 };
+function resolverEstiloModelo(corteSeleccionado, haircuts) {
+  const corteActual = haircuts.find(
+    (corte) => String(corte.id) === String(corteSeleccionado)
+  );
+
+  const identificador = [
+    corteSeleccionado,
+    corteActual?.nombre,
+    corteActual?.name,
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  if (
+    identificador.includes("texturizado") ||
+    identificador.includes("french") ||
+    identificador.includes("crop")
+  ) {
+    return "corte-texturizado";
+  }
+
+  if (
+    identificador.includes("clasico") ||
+    identificador.includes("clásico") ||
+    identificador.includes("classic")
+  ) {
+    return "corte-clasico";
+  }
+
+  return "corte-clasico";
+}
 
 export function SimulacionView() {
   const videoRef = useRef(null);
@@ -63,7 +82,7 @@ export function SimulacionView() {
 
   const [estado, setEstado] = useState("inactivo");
   const [mensaje, setMensaje] = useState("");
-  const [corteSeleccionado, setCorteSeleccionado] = useState("buzz-cut");
+  const [corteSeleccionado, setCorteSeleccionado] = useState("corte-clasico");
   const [haircuts, setHaircuts] = useState(CORTES);
 
   const iniciarSimulador = useCallback(async () => {
@@ -143,48 +162,19 @@ export function SimulacionView() {
     camera.position.set(0, 0, 10);
     camera.lookAt(0, 0, 0);
 
-    const luzAmbiente = new THREE.AmbientLight(0xffffff, 1.8);
+    const luzAmbiente = new THREE.AmbientLight(0xffffff, 2.2);
     scene.add(luzAmbiente);
 
-    const luzPrincipal = new THREE.DirectionalLight(0xffffff, 1.2);
+    const luzPrincipal = new THREE.DirectionalLight(0xffffff, 1.5);
     luzPrincipal.position.set(0, 2, 5);
     scene.add(luzPrincipal);
 
-    // Identificar el corte seleccionado.
-    const corteActual = haircuts.find(
-      (corte) => String(corte.id) === String(corteSeleccionado)
-    );
-
-    const identificador = [
-      corteSeleccionado,
-      corteActual?.nombre,
-      corteActual?.name,
-    ]
-      .filter(Boolean)
-      .join(" ")
-      .toLowerCase();
-
-    let estiloModelo = "buzz-cut";
-
-    if (identificador.includes("mullet")) {
-      estiloModelo = "mullet";
-    } else if (
-      identificador.includes("fade") ||
-      identificador.includes("degradado")
-    ) {
-      estiloModelo = "mid-fade";
-    } else if (
-      identificador.includes("buzz") ||
-      identificador.includes("rapado")
-    ) {
-      estiloModelo = "buzz-cut";
-    }
+    const estiloModelo = resolverEstiloModelo(corteSeleccionado, haircuts);
 
     const cabello = crearModeloCabello(estiloModelo);
     cabello.visible = false;
 
     scene.add(cabello);
-
     cabello.rotation.set(0, 0, 0);
 
     let primerSeguimiento = true;
@@ -195,7 +185,12 @@ export function SimulacionView() {
     const posicionSuavizada = new THREE.Vector3();
     const escalaSuavizada = new THREE.Vector3();
 
-    // Ajustar el área de visualización de Three.js.
+    const matrizTransformacion = new THREE.Matrix4();
+    const posicionMatriz = new THREE.Vector3();
+    const escalaMatriz = new THREE.Vector3();
+    const rotacionObjetivo = new THREE.Quaternion();
+    const eulerRotacion = new THREE.Euler(0, 0, 0, "YXZ");
+
     const redimensionar = () => {
       const ancho = canvas.clientWidth;
       const alto = canvas.clientHeight;
@@ -219,8 +214,6 @@ export function SimulacionView() {
     const observador = new ResizeObserver(redimensionar);
     observador.observe(canvas.parentElement);
 
-    // Convertir las coordenadas de MediaPipe al espacio 3D.
-    // Debe coincidir con object-fit: contain del video.
     const convertirCoordenadas = (x, y) => {
       const anchoCanvas = canvas.clientWidth;
       const altoCanvas = canvas.clientHeight;
@@ -251,7 +244,6 @@ export function SimulacionView() {
       const desplazamientoY =
         (altoCanvas - altoRenderizado) / 2;
 
-      // Compensar el espejo horizontal del video.
       const xReflejada = 1 - x;
 
       const pixelX =
@@ -270,67 +262,51 @@ export function SimulacionView() {
       return new THREE.Vector2(mundoX, mundoY);
     };
 
-    // Seguimiento facial.
     const animar = () => {
       frameRef.current = requestAnimationFrame(animar);
 
       try {
         const resultado = detectarRostro(video);
         const puntos = resultado?.faceLandmarks?.[0];
+        const transformacionFacial =
+          resultado?.facialTransformationMatrixes?.[0]?.data;
 
         if (puntos && puntos.length > 356) {
           const frente = puntos[10];
+          const barbilla = puntos[152];
           const ladoIzquierdo = puntos[127];
           const ladoDerecho = puntos[356];
 
-          const puntoFrente = convertirCoordenadas(
-            frente.x,
-            frente.y
-          );
+          const puntoFrente = convertirCoordenadas(frente.x, frente.y);
+          const puntoBarbilla = convertirCoordenadas(barbilla.x, barbilla.y);
+          const puntoIzquierdo = convertirCoordenadas(ladoIzquierdo.x, ladoIzquierdo.y);
+          const puntoDerecho = convertirCoordenadas(ladoDerecho.x, ladoDerecho.y);
 
-          const puntoIzquierdo = convertirCoordenadas(
-            ladoIzquierdo.x,
-            ladoIzquierdo.y
-          );
-
-          const puntoDerecho = convertirCoordenadas(
-            ladoDerecho.x,
-            ladoDerecho.y
-          );
-
-          if (
-            !puntoFrente ||
-            !puntoIzquierdo ||
-            !puntoDerecho
-          ) {
+          if (!puntoFrente || !puntoBarbilla || !puntoIzquierdo || !puntoDerecho) {
             renderer.render(scene, camera);
             return;
           }
 
-          // Ancho entre los dos laterales de la cara.
-          const anchoRostro = puntoIzquierdo.distanceTo(
-            puntoDerecho
+   const anchoRostro = puntoIzquierdo.distanceTo(puntoDerecho);
+          const altoRostro = Math.max(
+            Math.abs(puntoFrente.y - puntoBarbilla.y),
+            anchoRostro * 0.8
           );
+          const centroX = (puntoIzquierdo.x + puntoDerecho.x) / 2;
+          const centroSienesY = (puntoIzquierdo.y + puntoDerecho.y) / 2;
+          const anclajeY =
+            puntoFrente.y * 0.65 +
+            centroSienesY * 0.35 +
+            altoRostro * AJUSTES.offsetFrenteY;
 
-          const centroX =
-            (puntoIzquierdo.x + puntoDerecho.x) / 2;
+          const escalaUniforme = anchoRostro * AJUSTES.escalaRelativaRostro;
 
-          // Posicionar la base del modelo cerca de la frente.
-          posicionObjetivo.set(
-            centroX,
-            puntoFrente.y +
-              anchoRostro * AJUSTES.posicionVertical,
-            0
-          );
+          posicionObjetivo.set(centroX, anclajeY, AJUSTES.posicionZ);
+          escalaObjetivo.setScalar(escalaUniforme);
 
-          // Escala reducida y proporcional al rostro.
-          escalaObjetivo.set(
-            anchoRostro * AJUSTES.anchoCabello,
-            anchoRostro * AJUSTES.altoCabello,
-            anchoRostro * AJUSTES.profundidadCabello
-          );
+          const primerFrame = primerSeguimiento;
 
-          if (primerSeguimiento) {
+          if (primerFrame) {
             posicionSuavizada.copy(posicionObjetivo);
             escalaSuavizada.copy(escalaObjetivo);
 
@@ -343,7 +319,6 @@ export function SimulacionView() {
               posicionObjetivo,
               AJUSTES.suavizadoPosicion
             );
-
             escalaSuavizada.lerp(
               escalaObjetivo,
               AJUSTES.suavizadoEscala
@@ -353,11 +328,35 @@ export function SimulacionView() {
             cabello.scale.copy(escalaSuavizada);
           }
 
+          if (
+            transformacionFacial &&
+            transformacionFacial.length === 16
+          ) {
+            matrizTransformacion.fromArray(transformacionFacial);
+            matrizTransformacion.decompose(
+              posicionMatriz,
+              rotacionObjetivo,
+              escalaMatriz
+            );
+
+            eulerRotacion.setFromQuaternion(rotacionObjetivo, "YXZ");
+            eulerRotacion.y = -eulerRotacion.y;
+            eulerRotacion.z = -eulerRotacion.z;
+            rotacionObjetivo.setFromEuler(eulerRotacion);
+
+            if (primerFrame) {
+              cabello.quaternion.copy(rotacionObjetivo);
+            } else {
+              cabello.quaternion.slerp(
+                rotacionObjetivo,
+                AJUSTES.suavizadoRotacion
+              );
+            }
+          }
+
           cabello.visible = true;
 
-          setMensaje(
-            "Rostro detectado. Mantén la cabeza frente a la cámara."
-          );
+          setMensaje("Rostro detectado. Mantén la cabeza frente a la cámara.");
         } else {
           cabello.visible = false;
           primerSeguimiento = true;
@@ -375,11 +374,8 @@ export function SimulacionView() {
 
     return () => {
       cancelAnimationFrame(frameRef.current);
-
       observador.disconnect();
-
       liberarModeloCabello(cabello);
-
       renderer.dispose();
     };
   }, [estado, corteSeleccionado, haircuts]);
@@ -428,7 +424,7 @@ export function SimulacionView() {
 
       <section className="simulador-layout">
         <div className="simulador-camara">
-            
+
           <video
             ref={videoRef}
             className="simulador-video"
@@ -515,7 +511,6 @@ export function SimulacionView() {
 
             <p>
               Los modelos 3D representan geometrías preliminares.
-              Seguimos trabajando en su textura y adaptación al rostro.
             </p>
           </div>
         </aside>
