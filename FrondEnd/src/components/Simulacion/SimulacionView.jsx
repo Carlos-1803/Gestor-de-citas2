@@ -34,13 +34,13 @@ const CORTES = [
 
 // Escala uniforme para preservar la forma original del .glb
 const AJUSTES = {
-  escalaRelativaRostro: 1.24,
-  offsetFrenteY: 0.02,
+  escalaRelativaRostro: 1.22,
+  offsetFrenteY: -0.01,
   posicionZ: 1,
 
-  suavizadoPosicion: 0.55,
-  suavizadoEscala: 0.35,
-  suavizadoRotacion: 0.45,
+  suavizadoPosicion: 0.62,
+  suavizadoEscala: 0.38,
+  suavizadoRotacion: 0.48,
 };
 function resolverEstiloModelo(corteSeleccionado, haircuts) {
   const corteActual = haircuts.find(

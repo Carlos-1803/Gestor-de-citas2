@@ -13,13 +13,13 @@ const ROTACION_Y_BASE = {
 
 // Posición vertical centrada alrededor del cráneo para que abrace frente y sienes
 const OFFSET_LOCAL_Y = {
-  "corte-clasico": -0.04,
-  "corte-texturizado": -0.04,
+  "corte-clasico": -0.02,
+  "corte-texturizado": -0.02,
 };
 
 const OFFSET_LOCAL_Z = {
-  "corte-clasico": -0.06,
-  "corte-texturizado": -0.06,
+  "corte-clasico": -0.05,
+  "corte-texturizado": -0.05,
 };
 
 const cacheEscenas = new Map();
@@ -73,7 +73,7 @@ function sanearGeometria(geometria) {
 function crearOclusorCabeza() {
   // Óvalo invisible que representa tu cabeza/rostro para ocultar la parte trasera del cabello
   const geoOclusor = new THREE.SphereGeometry(0.42, 24, 24);
-  geoOclusor.scale(0.84, 1.08, 0.92);
+  geoOclusor.scale(0.95, 1.25, 1.02);
 
   const matOclusor = new THREE.MeshBasicMaterial({
     colorWrite: false,
@@ -81,7 +81,7 @@ function crearOclusorCabeza() {
   });
 
   const oclusor = new THREE.Mesh(geoOclusor, matOclusor);
-  oclusor.position.set(0, -0.16, -0.02);
+  oclusor.position.set(0, -0.24, -0.02);
   oclusor.renderOrder = 0;
   return oclusor;
 }
