@@ -1,179 +1,82 @@
-import * as THREE from "three";
-import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
+import * as THREE from 'three';
+import { HAIR_STYLES } from './hairCatalog.js';
+import { acquireHairTextures, releaseHairTextures } from './strandTextures.js';
 
-const RUTAS_MODELOS = {
-  "corte-clasico": "/models/cabello/coleccion/corte-clasico.glb",
-  "corte-texturizado": "/models/cabello/coleccion/corte-texturizado.glb",
-};
-
-const ROTACION_Y_BASE = {
-  "corte-clasico": 0,
-  "corte-texturizado": 0,
-};
-
-// Posición vertical centrada alrededor del cráneo para que abrace frente y sienes
-const OFFSET_LOCAL_Y = {
-  "corte-clasico": -0.02,
-  "corte-texturizado": -0.02,
-};
-
-const OFFSET_LOCAL_Z = {
-  "corte-clasico": -0.05,
-  "corte-texturizado": -0.05,
-};
-
-const cacheEscenas = new Map();
-
-function cargarEscenaGLTF(ruta) {
-  if (!cacheEscenas.has(ruta)) {
-    const loader = new GLTFLoader();
-    const promesa = loader.loadAsync(ruta).catch((error) => {
-      cacheEscenas.delete(ruta);
-      throw error;
-    });
-    cacheEscenas.set(ruta, promesa);
+function surface(depth) {
+  // A gently curved transparent image surface, not an opaque scalp/helmet.
+  const geometry = new THREE.PlaneGeometry(1.7, 1.65, 24, 24), positions = geometry.attributes.position;
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i), y = positions.getY(i) + .025;
+    const curvature = Math.sqrt(Math.max(0, 1 - (x / .68) ** 2));
+    positions.setXYZ(i, x, y, depth + curvature * .15);
   }
-  return cacheEscenas.get(ruta);
+  geometry.computeVertexNormals(); return geometry;
 }
-
-function liberarObjeto(objeto) {
-  objeto.traverse((hijo) => {
-    if (hijo.isMesh) {
-      hijo.geometry?.dispose();
-      const mats = Array.isArray(hijo.material)
-        ? hijo.material
-        : [hijo.material];
-      mats.forEach((m) => m?.dispose());
-    }
-  });
+function texture(image) {
+  const value = new THREE.CanvasTexture(image);
+  value.colorSpace = THREE.SRGBColorSpace;
+  value.minFilter = THREE.LinearFilter; value.magFilter = THREE.LinearFilter;
+  value.generateMipmaps = false;
+  // Canvas is not flipped for ImageBitmap uploads by WebGL; uv is adjusted below.
+  value.flipY = !(typeof ImageBitmap !== 'undefined' && image instanceof ImageBitmap);
+  return value;
 }
-
-function sanearGeometria(geometria) {
-  const posAttr = geometria.attributes.position;
-  if (posAttr) {
-    let corregido = false;
-    for (let i = 0; i < posAttr.count; i++) {
-      const x = posAttr.getX(i);
-      const y = posAttr.getY(i);
-      const z = posAttr.getZ(i);
-      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) {
-        posAttr.setXYZ(i, 0, 0, 0);
-        corregido = true;
-      }
+function bind(group, set) {
+  for (const layer of group.userData.layers) {
+    const image = set[layer.userData.layer];
+    layer.material.map?.dispose(); layer.material.map = texture(image);
+    layer.geometry.attributes.uv.copy(layer.userData.originalUv);
+    if (typeof ImageBitmap !== 'undefined' && image instanceof ImageBitmap) {
+      const uv = layer.geometry.attributes.uv;
+      for (let i = 0; i < uv.count; i++) uv.setY(i, 1 - uv.getY(i));
+      uv.needsUpdate = true;
     }
-    if (corregido) {
-      posAttr.needsUpdate = true;
-    }
-  }
-  if (!geometria.attributes.normal) {
-    geometria.computeVertexNormals();
+    layer.material.needsUpdate = true; layer.material.visible = true;
   }
 }
-
-function crearOclusorCabeza() {
-  // Óvalo invisible que representa tu cabeza/rostro para ocultar la parte trasera del cabello
-  const geoOclusor = new THREE.SphereGeometry(0.42, 24, 24);
-  geoOclusor.scale(0.95, 1.25, 1.02);
-
-  const matOclusor = new THREE.MeshBasicMaterial({
-    colorWrite: false,
-    depthWrite: true,
+function load(group, tone, acquire, release) {
+  const generation = ++group.userData.generation;
+  group.userData.loading = true;
+  const promise = acquire(group.userData.style, tone).then(set => {
+    if (group.userData.disposed || generation !== group.userData.generation) { release(set); return; }
+    bind(group, set); release(group.userData.textureSet); group.userData.textureSet = set;
+    group.userData.loading = false; group.userData.stats = set.stats;
+    group.userData.fringe = set.profile.fringe;
+  }).catch(error => {
+    if (!group.userData.disposed && generation === group.userData.generation) { group.userData.loading = false; group.userData.error = error; }
   });
-
-  const oclusor = new THREE.Mesh(geoOclusor, matOclusor);
-  oclusor.position.set(0, -0.24, -0.02);
-  oclusor.renderOrder = 0;
-  return oclusor;
+  group.userData.ready = promise;
 }
-
-function prepararModelo(escenaOriginal, estilo) {
-  const contenedor = new THREE.Group();
-  const pivote = new THREE.Group();
-  pivote.rotation.y = ROTACION_Y_BASE[estilo] ?? 0;
-
-  // 1. Oclusor primero (renderOrder = 0)
-  const oclusor = crearOclusorCabeza();
-  pivote.add(oclusor);
-
-  // 2. Modelo de cabello después (renderOrder = 1)
-  const clonEscena = escenaOriginal.clone(true);
-
-  const materialCabello = new THREE.MeshStandardMaterial({
-    color: 0x24160e,
-    roughness: 0.78,
-    metalness: 0.04,
-    side: THREE.DoubleSide,
-    polygonOffset: true,
-    polygonOffsetFactor: 1,
-    polygonOffsetUnits: 1,
-  });
-
-  clonEscena.traverse((hijo) => {
-    if (hijo.isMesh && hijo.geometry) {
-      hijo.geometry = hijo.geometry.clone();
-      sanearGeometria(hijo.geometry);
-      hijo.frustumCulled = false;
-      hijo.material = materialCabello;
-      hijo.renderOrder = 1;
-    }
-  });
-
-  pivote.add(clonEscena);
-  pivote.updateMatrixWorld(true);
-
-  const caja = new THREE.Box3().setFromObject(clonEscena);
-  if (!caja.isEmpty() && Number.isFinite(caja.min.x)) {
-    const centro = new THREE.Vector3();
-    const tamano = new THREE.Vector3();
-    caja.getCenter(centro);
-    caja.getSize(tamano);
-
-    const mayorDimension = Math.max(tamano.x, tamano.y, tamano.z, 0.0001);
-    const factorNormalizacion = 1 / mayorDimension;
-
-    clonEscena.scale.setScalar(factorNormalizacion);
-    clonEscena.position.set(
-      -centro.x * factorNormalizacion,
-      -centro.y * factorNormalizacion + (OFFSET_LOCAL_Y[estilo] ?? -0.04),
-      -centro.z * factorNormalizacion + (OFFSET_LOCAL_Z[estilo] ?? -0.06)
-    );
+export function crearModeloCabello(key = 'classic', tone = '#24160e', {
+  acquire = acquireHairTextures, release = releaseHairTextures,
+} = {}) {
+  if (!HAIR_STYLES.some(style => style.key === key)) throw new Error(`Filtro desconocido: ${key}`);
+  const group = new THREE.Group(); group.name = `StrandHair-${key}`;
+  Object.assign(group.userData, { style: key, generation: 0, disposed: false, layers: [], release, acquire });
+  // Depth-only face occluder: has no visible color and never fills a hair shape.
+  const mask = new THREE.Mesh(new THREE.SphereGeometry(1, 16, 16), new THREE.MeshBasicMaterial({ colorWrite: false, depthWrite: true }));
+  mask.position.set(0, -.54, -.13); mask.scale.set(.45, .56, .40); mask.renderOrder = -1; group.add(mask);
+  for (const [index, name] of ['shadow', 'rear', 'front'].entries()) {
+    const depth = name === 'shadow' ? .17 : name === 'rear' ? (key === 'mullet' ? -.32 : .08) : .27;
+    const geometry = surface(depth);
+    const mesh = new THREE.Mesh(geometry, new THREE.MeshBasicMaterial({ transparent: true,
+      opacity: 1, depthWrite: false, side: THREE.DoubleSide, alphaTest: .001 }));
+    // Empty material remains invisible until worker-generated textures are ready.
+    mesh.material.visible = false;
+    mesh.userData.layer = name; mesh.userData.originalUv = geometry.attributes.uv.clone();
+    mesh.renderOrder = index; mesh.frustumCulled = false;
+    group.userData.layers.push(mesh); group.add(mesh);
   }
-
-  contenedor.add(pivote);
-  return contenedor;
+  load(group, tone, acquire, release);
+  return group;
 }
-
-export function crearModeloCabello(estilo = "corte-clasico") {
-  const grupo = new THREE.Group();
-  grupo.name = `ModeloCabello-${estilo}`;
-  grupo.userData.cancelado = false;
-
-  const ruta = RUTAS_MODELOS[estilo] || RUTAS_MODELOS["corte-clasico"];
-
-  cargarEscenaGLTF(ruta)
-    .then((gltf) => {
-      if (grupo.userData.cancelado) return;
-
-      const modeloListo = prepararModelo(gltf.scene, estilo);
-
-      if (grupo.userData.cancelado) {
-        liberarObjeto(modeloListo);
-        return;
-      }
-
-      grupo.add(modeloListo);
-      console.log(`Modelo GLB cargado: ${estilo} (${ruta})`);
-    })
-    .catch((error) => {
-      console.error(`Error al cargar ${ruta}:`, error);
-    });
-
-  return grupo;
+export function cambiarTonoCabello(group, tone) {
+  if (group && !group.userData.disposed) load(group, tone, group.userData.acquire, group.userData.release);
 }
-
-export function liberarModeloCabello(modelo) {
-  if (!modelo) return;
-  modelo.userData.cancelado = true;
-  liberarObjeto(modelo);
-  modelo.clear();
+export function liberarModeloCabello(group) {
+  if (!group || group.userData.disposed) return;
+  group.userData.disposed = true; group.userData.generation++;
+  group.userData.release(group.userData.textureSet);
+  group.traverse(mesh => { if (mesh.isMesh) { mesh.material.map?.dispose(); mesh.geometry.dispose(); mesh.material.dispose(); } });
+  group.clear();
 }

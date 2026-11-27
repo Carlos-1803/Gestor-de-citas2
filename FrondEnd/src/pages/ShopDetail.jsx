@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { api, money } from "../api";
 import Field from "../components/Field";
+import ReviewList from "../components/ReviewList";
+import LocationMap from "../maps/LocationMap";
 function ShopDetail({ id, user, login, back, notify, booked }) {
   const [data, setData] = useState(null);
   const [offerId, setOfferId] = useState("");
@@ -122,12 +124,7 @@ function ShopDetail({ id, user, login, back, notify, booked }) {
                 La barbería todavía no ha publicado fotos de sus instalaciones.
               </p>
             )}
-            <iframe
-              title={`Mapa de ${shop.name}`}
-              loading="lazy"
-              referrerPolicy="no-referrer"
-              src={`https://www.openstreetmap.org/export/embed.html?bbox=${lon - 0.008},${lat - 0.005},${lon + 0.008},${lat + 0.005}&layer=mapnik&marker=${lat},${lon}`}
-            />
+            <LocationMap latitude={lat} longitude={lon} title={`Mapa de ${shop.name}`} />
             <a
               href={`https://www.openstreetmap.org/?mlat=${lat}&mlon=${lon}#map=17/${lat}/${lon}`}
               target="_blank"
@@ -267,6 +264,8 @@ function ShopDetail({ id, user, login, back, notify, booked }) {
           </form>
         </aside>
       </div>
+      <ReviewList key={id} endpoint={`/shops/${id}/reviews`} />
+      {user?.role === "Client" && <p className="muted">Para calificar esta barbería, abre Mis citas y selecciona una cita completada.</p>}
     </>
   );
 }

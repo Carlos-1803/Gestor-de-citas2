@@ -1,0 +1,22 @@
+.location-map { margin: 20px 0; min-width: 0; }
+.location-map h3 { margin-bottom: 8px; }
+.location-map .leaflet-container { height: clamp(290px, 50svh, 480px); width: 100%; border: 1px solid #c7c5b7; border-radius: 8px; z-index: 0; font: 13px system-ui, sans-serif; background: #ece9dc; }
+.location-map .leaflet-control-zoom a { width: 46px; height: 46px; line-height: 46px; font-size: 26px; color: #294b3a; }
+.location-map .leaflet-tile { max-width: none; }
+.location-map .leaflet-marker-pane .barberst-pin { border: 0; background: transparent; }
+.barberst-pin span { display: grid; place-items: center; height: 36px; width: 36px; border-radius: 50% 50% 50% 0; transform: rotate(-45deg); color: #fff; background: #294b3a; border: 3px solid #d6b372; box-shadow: 0 2px 5px #0005; font-size: 22px; }
+.map-attribution { font: 12px/1.5 system-ui, sans-serif; padding: 8px 0; overflow-wrap: anywhere; }
+.map-attribution a { text-decoration: underline; }
+.map-help { font-size: 13px; line-height: 1.5; }
+.map-status { padding: 12px; border-radius: 5px; background: #ececdf; color: #294b3a; margin: 12px 0; overflow-wrap: anywhere; }
+.map-gps { min-height: 48px; margin-top: 12px; width: 100%; }
+.map-downloads .field { min-width: 0; }
+.map-downloads .actions { margin-block: 16px; }
+.map-downloads button { min-height: 46px; }
+.map-progress { margin-block: 14px; }
+.map-progress progress { width: 100%; height: 20px; accent-color: #294b3a; }
+@media (max-width: 600px) {
+  .map-downloads .form-row { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .map-downloads .actions { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .location-map .leaflet-container { height: 330px; }
+}

@@ -1,32 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
 import { api, money, dateLabel } from "../api";
 import Field from "../components/Field";
+import ReviewList from "../components/ReviewList";
+import Bookings from "./Bookings";
+import LocationMap from "../maps/LocationMap";
+import { validCoordinates } from "../maps/mapRegion";
 const initialShop = {
   name: "",
   description: "",
   address: "",
   phone: "",
-  latitude: 20.9674,
-  longitude: -89.5926,
+  latitude: null,
+  longitude: null,
   timeZone: "America/Merida",
 };
-function Manage({ open, notify }) {
-  const [shops, setShops] = useState([]);
-  const [selected, setSelected] = useState("");
-  const [shop, setShop] = useState(initialShop);
+function Manage({ selectedShop, open, notify, onSaved, onAddBranch, onChooseBranches }) {
+  const selected = selectedShop ? String(selectedShop.id) : "";
+  const [shop, setShop] = useState(selectedShop || initialShop);
   const [team, setTeam] = useState(null);
   const [photos, setPhotos] = useState([]);
   const [cuts, setCuts] = useState([]);
   const [barberId, setBarberId] = useState("");
   const [tab, setTab] = useState("profile");
   const [busy, setBusy] = useState(false);
-  const loadShops = useCallback(
-    () =>
-      api("/manage/shops")
-        .then(setShops)
-        .catch((e) => notify(e.message)),
-    [notify],
-  );
+  const setLocation = useCallback((point) => setShop((previous) => ({ ...previous, ...point })), []);
   const loadTeam = useCallback(
     () =>
       selected
@@ -43,11 +40,10 @@ function Manage({ open, notify }) {
     [selected, notify],
   );
   useEffect(() => {
-    loadShops();
     api("/haircuts")
       .then(setCuts)
       .catch((e) => notify(e.message));
-  }, [loadShops, notify]);
+  }, [notify]);
   useEffect(() => {
     loadTeam();
   }, [loadTeam]);
@@ -63,21 +59,18 @@ function Manage({ open, notify }) {
       setBusy(false);
     }
   }
-  function selectShop(id) {
-    setSelected(id);
-    setShop(shops.find((s) => s.id === Number(id)) || initialShop);
-    setTeam(null);
-    setBarberId("");
-  }
   async function saveShop(e) {
     e.preventDefault();
+    if (!validCoordinates(shop.latitude, shop.longitude)) {
+      notify("Selecciona la ubicación de la barbería en el mapa o usa la ubicación precisa del teléfono antes de guardar.");
+      return;
+    }
     await action(async () => {
       const result = await api(
         "/manage/shops" + (selected ? `/${selected}` : ""),
         { method: selected ? "PUT" : "POST", body: shop },
       );
-      await loadShops();
-      if (result?.id) setSelected(String(result.id));
+      await onSaved(result?.id || Number(selected));
     });
   }
   const barber = team?.barbers.find((b) => b.id === Number(barberId));
@@ -85,7 +78,11 @@ function Manage({ open, notify }) {
     <section>
       <p className="eyebrow">TU NEGOCIO, A TU MANERA</p>
       <div className="section-head">
-        <h1>Mi barbería</h1>
+        <h1>{selectedShop ? selectedShop.name : "Registrar barbería"}</h1>
+        <div className="actions">
+          <button className="outline" onClick={onChooseBranches}>Mis sucursales</button>
+          {selected && <button className="primary" onClick={onAddBranch}>Agregar nueva sucursal</button>}
+        </div>
         {selected && (
           <button className="outline" onClick={() => open(Number(selected))}>
             Ver perfil público ↗
@@ -93,21 +90,12 @@ function Manage({ open, notify }) {
         )}
       </div>
       <div className="toolbar">
-        <Field label="Establecimiento">
-          <select value={selected} onChange={(e) => selectShop(e.target.value)}>
-            <option value="">+ Registrar nueva barbería</option>
-            {shops.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-        </Field>
         <div className="tabs">
           {[
             ["profile", "Perfil y fotos"],
             ["team", "Barberos y horarios"],
             ["products", "Productos"],
+            ...(selected ? [["reviews", "Reseñas y Calificaciones"]] : []),
           ].map(([key, label]) => (
             <button
               className={tab === key ? "active" : ""}
@@ -119,6 +107,10 @@ function Manage({ open, notify }) {
           ))}
         </div>
       </div>
+      {tab === "reviews" && selected && <>
+        <ReviewList endpoint={`/manage/shops/${selected}/reviews`} title="Reseñas recibidas" />
+        <Bookings key={selected} user={{ role: "Barber" }} shopId={Number(selected)} notify={notify} reviewsOnly />
+      </>}
       {tab === "profile" && (
         <div className="manage-columns">
           <form className="panel" onSubmit={saveShop}>
@@ -141,29 +133,9 @@ function Manage({ open, notify }) {
                 />
               </Field>
             ))}
-            <div className="form-row">
-              {[
-                ["latitude", "Latitud", -90, 90],
-                ["longitude", "Longitud", -180, 180],
-              ].map(([key, label, min, max]) => (
-                <Field label={label} key={key}>
-                  <input
-                    type="number"
-                    step="any"
-                    min={min}
-                    max={max}
-                    required
-                    value={shop[key]}
-                    onChange={(e) =>
-                      setShop({ ...shop, [key]: Number(e.target.value) })
-                    }
-                  />
-                </Field>
-              ))}
-            </div>
+            <LocationMap latitude={shop.latitude} longitude={shop.longitude} editable existing={Boolean(selected)} onChange={setLocation} />
             <p className="muted">
-              Indica las coordenadas exactas de tu local. Sus horarios usan la
-              zona horaria indicada.
+              Confirma el pin en el lugar exacto del local. Sus horarios usan la zona horaria indicada.
             </p>
             <button className="primary" disabled={busy}>
               {busy

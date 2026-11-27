@@ -1,0 +1,10 @@
+{
+  "online": {
+    "id": "osm-standard-v1",
+    "urlTemplate": "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    "name": "OpenStreetMap",
+    "attribution": "© OpenStreetMap contributors",
+    "attributionUrl": "https://www.openstreetmap.org/copyright"
+  },
+  "offline": null
+}

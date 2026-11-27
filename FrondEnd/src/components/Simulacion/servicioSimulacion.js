@@ -1,96 +1,40 @@
+import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 
-import {
-  FaceLandmarker,
-  FilesetResolver,
-} from "@mediapipe/tasks-vision";
-
-let faceLandmarker = null;
-let flujoCamara = null;
-let inicializando = null;
-
-export async function inicializarDetector() {
-  if (faceLandmarker) return faceLandmarker;
-
-  if (inicializando) return inicializando;
-
-  inicializando = (async () => {
-    const vision = await FilesetResolver.forVisionTasks(
-      "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.2.2/wasm"
-    );
-
-    faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
-      baseOptions: {
-        modelAssetPath:
-          "https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task",
-        delegate: "GPU",
-      },
-      runningMode: "VIDEO",
-      numFaces: 1,
-      outputFaceBlendshapes: false,
-      outputFacialTransformationMatrixes: true,
-    });
-
-    return faceLandmarker;
-  })();
-
+export async function crearDetector(mode, signal) {
+  const response = await fetch("/ra/face_landmarker.task", { signal });
+  if (!response.ok) throw new Error("No se descargó el detector facial. Prepara el simulador sin conexión e inténtalo de nuevo.");
+  const model = new Uint8Array(await response.arrayBuffer());
+  if (model.length < 1000000 || !model.subarray(0, 8).some((byte, i) => byte === 80 && model[i + 1] === 75)) throw new Error("El servidor no está entregando el modelo facial correctamente.");
+  const vision = await FilesetResolver.forVisionTasks("/ra/vision");
+  signal?.throwIfAborted();
+  let detector;
   try {
-    return await inicializando;
+    detector = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: { modelAssetBuffer: model, delegate: "GPU" }, runningMode: mode,
+      numFaces: 1, outputFacialTransformationMatrixes: true,
+    });
+  } catch {
+    signal?.throwIfAborted();
+    detector = await FaceLandmarker.createFromOptions(vision, {
+      baseOptions: { modelAssetBuffer: model, delegate: "CPU" }, runningMode: mode,
+      numFaces: 1, outputFacialTransformationMatrixes: true,
+    });
+  }
+  if (signal?.aborted) { detector.close(); signal.throwIfAborted(); }
+  return detector;
+}
+export async function iniciarCamara(signal) {
+  if (!window.isSecureContext) throw new Error("La cámara necesita HTTPS o localhost. También puedes cargar una foto.");
+  if (!navigator.mediaDevices?.getUserMedia) throw new Error("Este navegador no ofrece cámara. Puedes cargar una foto.");
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: false,
+      video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } });
+    if (signal?.aborted) { liberarCamara(stream); signal.throwIfAborted(); }
+    return stream;
   } catch (error) {
-    faceLandmarker = null;
+    if (error.name === "NotAllowedError") throw new Error("Permiso de cámara denegado. Autorízalo en el navegador o carga una foto.", { cause: error });
+    if (error.name === "NotFoundError") throw new Error("No se encontró una cámara. Puedes cargar una foto.", { cause: error });
     throw error;
-  } finally {
-    inicializando = null;
   }
 }
-
-export async function iniciarCamara(videoElement) {
-  if (!navigator.mediaDevices?.getUserMedia) {
-    throw new Error("El navegador no permite acceder a la cámara.");
-  }
-
-  flujoCamara = await navigator.mediaDevices.getUserMedia({
-    audio: false,
-    video: {
-      facingMode: "user",
-      width: { ideal: 1280 },
-      height: { ideal: 720 },
-    },
-  });
-
-  videoElement.srcObject = flujoCamara;
-  await videoElement.play();
-
-  return flujoCamara;
-}
-
-export function detectarRostro(videoElement) {
-  if (!faceLandmarker) {
-    throw new Error("El detector facial no está inicializado.");
-  }
-
-  if (
-    videoElement.readyState < 2 ||
-    videoElement.videoWidth === 0
-  ) {
-    return null;
-  }
-
-  return faceLandmarker.detectForVideo(
-    videoElement,
-    performance.now()
-  );
-}
-
-export function liberarCamara() {
-  if (flujoCamara) {
-    flujoCamara.getTracks().forEach((track) => track.stop());
-    flujoCamara = null;
-  }
-}
-
-export function liberarDetector() {
-  if (faceLandmarker) {
-    faceLandmarker.close();
-    faceLandmarker = null;
-  }
-}
+export function liberarCamara(stream) { stream?.getTracks().forEach(track => track.stop()); }

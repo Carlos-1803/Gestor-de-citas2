@@ -1,16 +1,20 @@
 import Field from "../components/Field";
+import ReviewForm from "../components/ReviewForm";
+import ReviewList from "../components/ReviewList";
 import { useCallback, useEffect, useState } from "react";
 import { api, money, states, dateLabel } from "../api";
-function Bookings({ user, notify }) {
+function Bookings({ user, notify, shopId = null, reviewsOnly = false }) {
   const [items, setItems] = useState(null);
   const [day, setDay] = useState("");
   const [busy, setBusy] = useState(false);
+  const [reviewBooking, setReviewBooking] = useState(null);
+  const [reviewCustomer, setReviewCustomer] = useState(null);
   const load = useCallback(
     () =>
-      api("/bookings")
+      api("/bookings" + (shopId ? `?shopId=${shopId}` : ""))
         .then(setItems)
         .catch((e) => notify(e.message)),
-    [notify],
+    [notify, shopId],
   );
   useEffect(() => {
     load();
@@ -28,19 +32,19 @@ function Bookings({ user, notify }) {
   }
   const visible = items?.filter(
     (b) =>
-      !day ||
+      (!reviewsOnly || b.status === "Completed") && (!day ||
       new Intl.DateTimeFormat("en-CA", {
         timeZone: b.timeZone,
         year: "numeric",
         month: "2-digit",
         day: "2-digit",
-      }).format(new Date(b.start)) === day,
+      }).format(new Date(b.start)) === day),
   );
   return (
     <section>
       <p className="eyebrow">CADA CITA, EN SU MOMENTO</p>
       <div className="section-head">
-        <h1>{user.role === "Barber" ? "Tu agenda" : "Mis citas"}</h1>
+        <h1>{reviewsOnly ? "Clientes de citas completadas" : user.role === "Barber" ? "Tu agenda" : "Mis citas"}</h1>
         <Field label="Filtrar día (zona de cada barbería)">
           <input
             type="date"
@@ -52,7 +56,8 @@ function Bookings({ user, notify }) {
           Ver todas
         </button>
       </div>
-      {user.role === "Barber" && (
+      {user.role === "Client" && <ReviewList endpoint="/me/reviews" title="Calificaciones que recibiste" />}
+      {user.role === "Barber" && !reviewsOnly && (
         <MonthCalendar items={items || []} choose={setDay} />
       )}
       {items === null ? (
@@ -85,6 +90,14 @@ function Bookings({ user, notify }) {
                 <strong>Total: {money(b.total)}</strong>
               </div>
               <div className="actions">
+                {b.status === "Completed" && <>
+                  {(user.role === "Client" ? b.clientReviewId : b.shopReviewId)
+                    ? <span className="chip">Reseña publicada</span>
+                    : <button className="outline small" onClick={() => setReviewBooking(b)}>
+                      {user.role === "Client" ? "Calificar barbería" : "Calificar cliente"}
+                    </button>}
+                  {user.role === "Barber" && <button className="text-button" onClick={() => setReviewCustomer(b)}>Ver calificaciones del cliente</button>}
+                </>}
                 {["Pending", "Confirmed"].includes(b.status) && (
                   <>
                     {user.role === "Barber" && b.status === "Pending" && (
@@ -124,6 +137,19 @@ function Bookings({ user, notify }) {
           ))}
         </div>
       )}
+      {reviewCustomer && <div className="panel">
+        <button className="text-button" onClick={() => setReviewCustomer(null)}>Cerrar calificaciones del cliente</button>
+        <ReviewList key={`${reviewCustomer.shopId}-${reviewCustomer.customerId}`}
+          endpoint={`/manage/shops/${reviewCustomer.shopId}/customers/${reviewCustomer.customerId}/reviews`}
+          title={`Calificaciones de ${reviewCustomer.customer} en esta sucursal`} />
+      </div>}
+      {reviewBooking && <ReviewForm bookingId={reviewBooking.id}
+        target={user.role === "Client" ? reviewBooking.shop : reviewBooking.customer}
+        close={() => setReviewBooking(null)} saved={async () => {
+          setReviewBooking(null);
+          notify("Reseña publicada. Gracias por compartir tu experiencia.");
+          await load();
+        }} />}
     </section>
   );
 }

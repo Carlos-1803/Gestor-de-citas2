@@ -28,3 +28,6 @@ BackEnd/wwwroot/*
 !BackEnd/wwwroot/.gitkeep
 __pycache__/
 *.pyc
+
+# Generated from the installed MediaPipe package by predev/prebuild
+FrondEnd/public/ra/vision/

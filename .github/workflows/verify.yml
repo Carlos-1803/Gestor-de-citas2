@@ -33,11 +33,22 @@ jobs:
           cache-dependency-path: FrondEnd/package-lock.json
       - run: npm --prefix FrondEnd ci
       - run: npm --prefix FrondEnd run lint
+      - run: npm --prefix FrondEnd test
       - run: npm --prefix FrondEnd run build
       - run: dotnet build BackEnd --configuration Release
       - run: dotnet run --project BackEnd --configuration Release --no-build -- --migrate
       - name: Integration checks
         run: |
+          sudo apt-get update
+          sudo apt-get install -y mariadb-client
+          cat > /tmp/reviews-db.cnf <<'EOF'
+          [client]
+          host=127.0.0.1
+          port=3306
+          user=gestor
+          password=test-only-password
+          EOF
+          chmod 600 /tmp/reviews-db.cnf
           dotnet run --project BackEnd --configuration Release --no-build --no-launch-profile --urls http://127.0.0.1:5191 > /tmp/api.log 2>&1 &
           API_PID=$!
           trap 'kill "$API_PID" || true' EXIT
@@ -46,3 +57,4 @@ jobs:
             sleep 1
           done
           python tests/integration.py --url http://127.0.0.1:5191 || { cat /tmp/api.log; exit 1; }
+          python tests/integration_reviews.py --url http://127.0.0.1:5191 --db-config /tmp/reviews-db.cnf --database gestor_test || { cat /tmp/api.log; exit 1; }

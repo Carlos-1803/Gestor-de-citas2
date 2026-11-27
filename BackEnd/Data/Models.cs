@@ -159,6 +159,7 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
     
     // AQUÍ AGREGAMOS EL DbSet PARA QUE SE RECONOZCA LA TABLA EN MYSQL
     public DbSet<Simulacion> Simulaciones => Set<Simulacion>();
+    public DbSet<Review> Reviews => Set<Review>();
 
     protected override void OnModelCreating(ModelBuilder m)
     {
@@ -170,6 +171,17 @@ public class AppDb(DbContextOptions<AppDb> options) : DbContext(options)
         m.Entity<Offering>().HasIndex(x => new { x.BarberId, x.HaircutId }).IsUnique();
         m.Entity<Booking>().HasIndex(x => new { x.BarberId, x.StartUtc, x.EndUtc });
         m.Entity<Block>().HasIndex(x => new { x.BarberId, x.StartUtc });
+        // OwnerId is deliberately non-unique: an owner may have several branches.
+        m.Entity<Review>().HasIndex(x => new { x.BookingId, x.Direction }).IsUnique();
+        m.Entity<Review>().HasIndex(x => new { x.ShopId, x.Direction, x.CreatedAtUtc });
+        m.Entity<Review>().HasIndex(x => new { x.CustomerId, x.Direction });
+        m.Entity<Review>().Property(x => x.Direction).HasMaxLength(32);
+        m.Entity<Review>().Property(x => x.Comment).HasMaxLength(2000);
+        m.Entity<Review>().ToTable(t =>
+        {
+            t.HasCheckConstraint("CK_Reviews_Rating", "`Rating` BETWEEN 1 AND 5");
+            t.HasCheckConstraint("CK_Reviews_Direction", "`Direction` IN ('ClientToShop', 'ShopToClient')");
+        });
         foreach (var entity in m.Model.GetEntityTypes())
         {
             foreach (var property in entity.GetProperties().Where(p => p.ClrType == typeof(decimal)))

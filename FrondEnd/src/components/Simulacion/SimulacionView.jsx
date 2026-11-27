@@ -1,520 +1,147 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-
-import * as THREE from "three";
-
+import { useEffect, useRef, useState } from "react";
 import { api } from "../../api";
-
-import {
-  inicializarDetector,
-  iniciarCamara,
-  detectarRostro,
-  liberarCamara,
-  liberarDetector,
-} from "./servicioSimulacion";
-
-import {
-  crearModeloCabello,
-  liberarModeloCabello,
-} from "./modelosCabello";
-
+import { HAIR_STYLES, linkCatalog } from "./hairCatalog.js";
+import { crearDetector, iniciarCamara, liberarCamara } from "./servicioSimulacion.js";
+import { createHairRenderer } from "./hairRenderer.js";
+import OfflineRaStatus from "./OfflineRaStatus.jsx";
 import "./simulacion.css";
 
-const CORTES = [
-  {
-    id: "corte-clasico",
-    nombre: "Corte clásico",
-    descripcion: "Peinado clásico con volumen superior y textura.",
-  },
-  {
-    id: "corte-texturizado",
-    nombre: "Corte texturizado",
-    descripcion: "Capas marcadas con textura en la parte superior.",
-  },
-];
-
-// Escala uniforme para preservar la forma original del .glb
-const AJUSTES = {
-  escalaRelativaRostro: 1.22,
-  offsetFrenteY: -0.01,
-  posicionZ: 1,
-
-  suavizadoPosicion: 0.62,
-  suavizadoEscala: 0.38,
-  suavizadoRotacion: 0.48,
-};
-function resolverEstiloModelo(corteSeleccionado, haircuts) {
-  const corteActual = haircuts.find(
-    (corte) => String(corte.id) === String(corteSeleccionado)
-  );
-
-  const identificador = [
-    corteSeleccionado,
-    corteActual?.nombre,
-    corteActual?.name,
-  ]
-    .filter(Boolean)
-    .join(" ")
-    .toLowerCase();
-
-  if (
-    identificador.includes("texturizado") ||
-    identificador.includes("french") ||
-    identificador.includes("crop")
-  ) {
-    return "corte-texturizado";
-  }
-
-  if (
-    identificador.includes("clasico") ||
-    identificador.includes("clásico") ||
-    identificador.includes("classic")
-  ) {
-    return "corte-clasico";
-  }
-
-  return "corte-clasico";
-}
-
-export function SimulacionView() {
-  const videoRef = useRef(null);
-  const canvasRef = useRef(null);
-  const frameRef = useRef(null);
-
-  const [estado, setEstado] = useState("inactivo");
-  const [mensaje, setMensaje] = useState("");
-  const [corteSeleccionado, setCorteSeleccionado] = useState("corte-clasico");
-  const [haircuts, setHaircuts] = useState(CORTES);
-
-  const iniciarSimulador = useCallback(async () => {
-    try {
-      setEstado("iniciando");
-      setMensaje("Solicitando acceso a la cámara...");
-
-      await inicializarDetector();
-      await iniciarCamara(videoRef.current);
-
-      setEstado("activo");
-      setMensaje("Coloca tu rostro frente a la cámara.");
-    } catch (error) {
-      console.error("Error al iniciar el simulador:", error);
-
-      setEstado("error");
-      setMensaje(error.message || "No se pudo iniciar el simulador.");
-
-      liberarCamara();
-      liberarDetector();
-    }
-  }, []);
-
-  // Consultar los cortes del catálogo.
+export function SimulacionView({ user }) {
+  const videoRef = useRef(null), canvasRef = useRef(null), engineRef = useRef(null);
+  const requestId = useRef(0);
+  const [catalog, setCatalog] = useState(() => linkCatalog([]));
+  const [key, setKey] = useState("classic");
+  const [tone, setTone] = useState("#24160e");
+  const [scale, setScale] = useState(1);
+  const [offset, setOffset] = useState(0);
+  const [input, setInput] = useState(null);
+  const [phase, setPhase] = useState("idle");
+  const [message, setMessage] = useState("");
+  const [error, setError] = useState("");
+  const settings = { key, tone, scale, offset };
+  const latest = useRef(settings);
+  useEffect(() => { latest.current = { key, tone, scale, offset }; engineRef.current?.update(latest.current); }, [key, tone, scale, offset]);
   useEffect(() => {
-    let activo = true;
-
-    api("/haircuts")
-      .then((respuesta) => {
-        const lista = Array.isArray(respuesta)
-          ? respuesta
-          : respuesta?.data;
-
-        if (activo && Array.isArray(lista) && lista.length > 0) {
-          setHaircuts(lista);
-        }
-      })
-      .catch((error) => {
-        console.warn("Se utilizarán los cortes iniciales:", error);
-      });
-
-    return () => {
-      activo = false;
-    };
+    let active = true;
+    api("/haircuts").then(rows => { if (active && Array.isArray(rows)) setCatalog(linkCatalog(rows)); })
+      .catch(() => { /* Local catalog is complete and available without the API. */ });
+    return () => { active = false; };
   }, []);
-
-  // Escena 3D y seguimiento facial.
   useEffect(() => {
-    if (estado !== "activo") return;
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-
-    if (!video || !canvas) return;
-
-    const renderer = new THREE.WebGLRenderer({
-      canvas,
-      alpha: true,
-      antialias: true,
-    });
-
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.outputColorSpace = THREE.SRGBColorSpace;
-    renderer.setClearColor(0x000000, 0);
-
-    const scene = new THREE.Scene();
-
-    const camera = new THREE.OrthographicCamera(
-      -1,
-      1,
-      1,
-      -1,
-      0.1,
-      100
-    );
-
-    camera.position.set(0, 0, 10);
-    camera.lookAt(0, 0, 0);
-
-    const luzAmbiente = new THREE.AmbientLight(0xffffff, 2.2);
-    scene.add(luzAmbiente);
-
-    const luzPrincipal = new THREE.DirectionalLight(0xffffff, 1.5);
-    luzPrincipal.position.set(0, 2, 5);
-    scene.add(luzPrincipal);
-
-    const estiloModelo = resolverEstiloModelo(corteSeleccionado, haircuts);
-
-    const cabello = crearModeloCabello(estiloModelo);
-    cabello.visible = false;
-
-    scene.add(cabello);
-    cabello.rotation.set(0, 0, 0);
-
-    let primerSeguimiento = true;
-
-    const posicionObjetivo = new THREE.Vector3();
-    const escalaObjetivo = new THREE.Vector3();
-
-    const posicionSuavizada = new THREE.Vector3();
-    const escalaSuavizada = new THREE.Vector3();
-
-    const matrizTransformacion = new THREE.Matrix4();
-    const posicionMatriz = new THREE.Vector3();
-    const escalaMatriz = new THREE.Vector3();
-    const rotacionObjetivo = new THREE.Quaternion();
-    const eulerRotacion = new THREE.Euler(0, 0, 0, "YXZ");
-
-    const redimensionar = () => {
-      const ancho = canvas.clientWidth;
-      const alto = canvas.clientHeight;
-
-      if (!ancho || !alto) return;
-
-      const aspecto = ancho / alto;
-
-      camera.left = -aspecto;
-      camera.right = aspecto;
-      camera.top = 1;
-      camera.bottom = -1;
-
-      camera.updateProjectionMatrix();
-
-      renderer.setSize(ancho, alto, false);
-    };
-
-    redimensionar();
-
-    const observador = new ResizeObserver(redimensionar);
-    observador.observe(canvas.parentElement);
-
-    const convertirCoordenadas = (x, y) => {
-      const anchoCanvas = canvas.clientWidth;
-      const altoCanvas = canvas.clientHeight;
-
-      const anchoVideo = video.videoWidth;
-      const altoVideo = video.videoHeight;
-
-      if (
-        !anchoCanvas ||
-        !altoCanvas ||
-        !anchoVideo ||
-        !altoVideo
-      ) {
-        return null;
-      }
-
-      const escalaVideo = Math.min(
-        anchoCanvas / anchoVideo,
-        altoCanvas / altoVideo
-      );
-
-      const anchoRenderizado = anchoVideo * escalaVideo;
-      const altoRenderizado = altoVideo * escalaVideo;
-
-      const desplazamientoX =
-        (anchoCanvas - anchoRenderizado) / 2;
-
-      const desplazamientoY =
-        (altoCanvas - altoRenderizado) / 2;
-
-      const xReflejada = 1 - x;
-
-      const pixelX =
-        xReflejada * anchoRenderizado + desplazamientoX;
-
-      const pixelY =
-        y * altoRenderizado + desplazamientoY;
-
-      const mundoX =
-        (pixelX / altoCanvas) * 2 -
-        anchoCanvas / altoCanvas;
-
-      const mundoY =
-        1 - (pixelY / altoCanvas) * 2;
-
-      return new THREE.Vector2(mundoX, mundoY);
-    };
-
-    const animar = () => {
-      frameRef.current = requestAnimationFrame(animar);
-
+    if (!input) return;
+    const controller = new AbortController();
+    let detector = null, stream = null, engine = null;
+    async function start() {
       try {
-        const resultado = detectarRostro(video);
-        const puntos = resultado?.faceLandmarks?.[0];
-        const transformacionFacial =
-          resultado?.facialTransformationMatrixes?.[0]?.data;
-
-        if (puntos && puntos.length > 356) {
-          const frente = puntos[10];
-          const barbilla = puntos[152];
-          const ladoIzquierdo = puntos[127];
-          const ladoDerecho = puntos[356];
-
-          const puntoFrente = convertirCoordenadas(frente.x, frente.y);
-          const puntoBarbilla = convertirCoordenadas(barbilla.x, barbilla.y);
-          const puntoIzquierdo = convertirCoordenadas(ladoIzquierdo.x, ladoIzquierdo.y);
-          const puntoDerecho = convertirCoordenadas(ladoDerecho.x, ladoDerecho.y);
-
-          if (!puntoFrente || !puntoBarbilla || !puntoIzquierdo || !puntoDerecho) {
-            renderer.render(scene, camera);
-            return;
-          }
-
-   const anchoRostro = puntoIzquierdo.distanceTo(puntoDerecho);
-          const altoRostro = Math.max(
-            Math.abs(puntoFrente.y - puntoBarbilla.y),
-            anchoRostro * 0.8
-          );
-          const centroX = (puntoIzquierdo.x + puntoDerecho.x) / 2;
-          const centroSienesY = (puntoIzquierdo.y + puntoDerecho.y) / 2;
-          const anclajeY =
-            puntoFrente.y * 0.65 +
-            centroSienesY * 0.35 +
-            altoRostro * AJUSTES.offsetFrenteY;
-
-          const escalaUniforme = anchoRostro * AJUSTES.escalaRelativaRostro;
-
-          posicionObjetivo.set(centroX, anclajeY, AJUSTES.posicionZ);
-          escalaObjetivo.setScalar(escalaUniforme);
-
-          const primerFrame = primerSeguimiento;
-
-          if (primerFrame) {
-            posicionSuavizada.copy(posicionObjetivo);
-            escalaSuavizada.copy(escalaObjetivo);
-
-            cabello.position.copy(posicionSuavizada);
-            cabello.scale.copy(escalaSuavizada);
-
-            primerSeguimiento = false;
-          } else {
-            posicionSuavizada.lerp(
-              posicionObjetivo,
-              AJUSTES.suavizadoPosicion
-            );
-            escalaSuavizada.lerp(
-              escalaObjetivo,
-              AJUSTES.suavizadoEscala
-            );
-
-            cabello.position.copy(posicionSuavizada);
-            cabello.scale.copy(escalaSuavizada);
-          }
-
-          if (
-            transformacionFacial &&
-            transformacionFacial.length === 16
-          ) {
-            matrizTransformacion.fromArray(transformacionFacial);
-            matrizTransformacion.decompose(
-              posicionMatriz,
-              rotacionObjetivo,
-              escalaMatriz
-            );
-
-            eulerRotacion.setFromQuaternion(rotacionObjetivo, "YXZ");
-            eulerRotacion.y = -eulerRotacion.y;
-            eulerRotacion.z = -eulerRotacion.z;
-            rotacionObjetivo.setFromEuler(eulerRotacion);
-
-            if (primerFrame) {
-              cabello.quaternion.copy(rotacionObjetivo);
-            } else {
-              cabello.quaternion.slerp(
-                rotacionObjetivo,
-                AJUSTES.suavizadoRotacion
-              );
-            }
-          }
-
-          cabello.visible = true;
-
-          setMensaje("Rostro detectado. Mantén la cabeza frente a la cámara.");
-        } else {
-          cabello.visible = false;
-          primerSeguimiento = true;
-
-          setMensaje("Buscando tu rostro...");
+        if (input.kind === "camera") {
+          stream = await iniciarCamara(controller.signal);
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+          controller.signal.throwIfAborted();
         }
-
-        renderer.render(scene, camera);
-      } catch (error) {
-        console.error("Error durante el seguimiento facial:", error);
-      }
-    };
-
-    animar();
-
-    return () => {
-      cancelAnimationFrame(frameRef.current);
-      observador.disconnect();
-      liberarModeloCabello(cabello);
-      renderer.dispose();
-    };
-  }, [estado, corteSeleccionado, haircuts]);
-
-  // Liberar cámara y detector al salir.
-  useEffect(() => {
-    return () => {
-      liberarCamara();
-      liberarDetector();
-    };
-  }, []);
-
-  const seleccionarCorte = async (corte) => {
-    setCorteSeleccionado(String(corte.id));
-
-    if (
-      !Number.isNaN(Number(corte.id)) &&
-      String(corte.id).trim() !== ""
-    ) {
-      try {
-        await api("/preferencias/guardar", {
-          method: "POST",
-          body: JSON.stringify({
-            estiloId: Number(corte.id),
-          }),
+        detector = await crearDetector(input.kind === "camera" ? "VIDEO" : "IMAGE", controller.signal);
+        controller.signal.throwIfAborted();
+        const live = input.kind === "camera", video = videoRef.current;
+        engine = createHairRenderer(canvasRef.current, {
+          live, mirror: live,
+          width: () => live ? video.videoWidth : input.image.width,
+          height: () => live ? video.videoHeight : input.image.height,
+          ready: () => live && video.readyState >= 2,
+          time: () => video.currentTime,
+          detect: () => detector.detectForVideo(video, performance.now()),
+        }, latest.current, text => { if (!controller.signal.aborted) setMessage(text); }, failure => {
+          if (!controller.signal.aborted) { setError(failure.message || "Falló el seguimiento facial."); setPhase("error"); liberarCamara(stream); }
         });
-      } catch (error) {
-        console.warn("No se pudo guardar la preferencia:", error);
+        engineRef.current = engine;
+        if (!live) engine.setResult(detector.detect(input.image));
+        setPhase("active");
+      } catch (failure) {
+        if (!controller.signal.aborted) {
+          setError(failure.message || "No se pudo iniciar el detector. Revisa los recursos offline."); setPhase("error");
+        }
+        liberarCamara(stream); detector?.close(); detector = null;
       }
     }
-  };
-
-  return (
-    <main className="simulador-container">
-      <header className="simulador-header">
-        <span className="simulador-etiqueta">
-          ENTRECORTES
-        </span>
-
-        <h1>Simulador de cortes AR</h1>
-
-        <p>
-          Prueba diferentes estilos y observa cómo se ajustan a tu rostro.
-        </p>
-      </header>
-
-      <section className="simulador-layout">
-        <div className="simulador-camara">
-
-          <video
-            ref={videoRef}
-            className="simulador-video"
-            autoPlay
-            muted
-            playsInline
-          />
-
-          <canvas
-            ref={canvasRef}
-            className="simulador-canvas"
-          />
-
-          {estado !== "activo" && (
-            <div className="simulador-inicio">
-              <span className="simulador-icono">✦</span>
-
-              <h2>Prueba tu próximo corte</h2>
-
-              <p>
-                Activa tu cámara para comenzar la simulación.
-              </p>
-
-              <button
-                className="simulador-boton"
-                onClick={iniciarSimulador}
-                disabled={estado === "iniciando"}
-              >
-                {estado === "iniciando"
-                  ? "Iniciando cámara..."
-                  : estado === "error"
-                    ? "Intentar nuevamente"
-                    : "Activar cámara"}
-              </button>
-            </div>
-          )}
-
-          <div className="simulador-estado">
-            <span
-              className={
-                estado === "activo"
-                  ? "punto-activo"
-                  : "punto-inactivo"
-              }
-            />
-
-            {mensaje || "Cámara desactivada"}
-          </div>
+    start();
+    return () => {
+      controller.abort(); engine?.dispose();
+      if (engineRef.current === engine) engineRef.current = null;
+      liberarCamara(stream); detector?.close();
+    };
+  }, [input]);
+  useEffect(() => {
+    const counter = requestId;
+    return () => { counter.current++; };
+  }, []);
+  function camera() {
+    requestId.current++; setError(""); setMessage("Preparando cámara y detector local…"); setPhase("loading");
+    setInput({ kind: "camera", id: requestId.current });
+  }
+  async function photo(event) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const version = ++requestId.current;
+    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 10 * 1024 * 1024) {
+      setError("Elige una foto JPG, PNG o WebP de hasta 10 MB."); return;
+    }
+    setInput(null); setPhase("loading"); setError(""); setMessage("Leyendo foto local…");
+    try {
+      const bitmap = await createImageBitmap(file);
+      const factor = Math.min(1, 1200 / Math.max(bitmap.width, bitmap.height));
+      const image = document.createElement("canvas");
+      image.width = Math.max(1, Math.round(bitmap.width * factor)); image.height = Math.max(1, Math.round(bitmap.height * factor));
+      image.getContext("2d").drawImage(bitmap, 0, 0, image.width, image.height); bitmap.close();
+      if (version !== requestId.current) return;
+      setInput({ kind: "photo", image, preview: image.toDataURL("image/jpeg", .9) });
+    } catch { if (version === requestId.current) { setPhase("error"); setError("No se pudo abrir esa foto. Intenta con otro JPG o PNG."); } }
+    event.target.value = "";
+  }
+  async function selectStyle(cut) {
+    setKey(cut.key);
+    // Preserve the existing server selection only when an authenticated client is online.
+    if (user?.role === "Client" && cut.haircutId && navigator.onLine) {
+      try { await api("/preferencias/guardar", { method: "POST", body: { estiloId: cut.haircutId } }); }
+      catch { setError("El filtro está seleccionado, pero no se pudo guardar la preferencia en el servidor."); }
+    }
+  }
+  const selected = HAIR_STYLES.find(style => style.key === key);
+  return <main className="simulador-container">
+    <header className="simulador-header">
+      <span className="simulador-etiqueta">K'iin BARBER</span>
+      <h1>Simulador de cortes AR</h1>
+      <p>Prueba los 20 cortes con tu cámara o una foto. El ajuste sigue el rostro; las vistas son ilustrativas.</p>
+    </header>
+    <section className="simulador-layout">
+      <div className="simulador-camara">
+        <video ref={videoRef} className="simulador-video" autoPlay muted playsInline hidden={input?.kind !== "camera"} />
+        {input?.kind === "photo" && <img className="simulador-foto" src={input.preview} alt="Foto local para probar el corte" />}
+        <canvas ref={canvasRef} className="simulador-canvas" aria-label={`Filtro ${selected.name}`} />
+        {!input && <div className="simulador-inicio"><span className="simulador-icono">✦</span>
+          <h2>Prueba tu próximo corte</h2><p>Activa tu cámara o carga una foto frontal con la frente visible.</p>
+        </div>}
+      </div>
+      <div className="simulador-source-controls">
+        <button className="simulador-boton" onClick={camera} disabled={phase === "loading"}>Activar cámara</button>
+        <button className="outline" disabled={!input} onClick={() => { requestId.current++; setInput(null); setPhase("idle"); setMessage("Cámara desactivada."); setError(""); }}>Detener vista previa</button>
+        <label className="field">Cargar foto del rostro<input type="file" accept="image/jpeg,image/png,image/webp" onChange={photo} /></label>
+        <p role="status">{phase === "loading" ? "Preparando vista previa… " : ""}{message || "Cámara desactivada. Las fotos permanecen en este dispositivo."}</p>
+        {error && <p role="alert">{error}</p>}
+      </div>
+      <aside className="simulador-panel">
+        <h2>Elige tu estilo</h2><p>Seleccionado: <strong>{selected.name}</strong>. {catalog.length} filtros disponibles.</p>
+        <div className="simulador-ajustes">
+          <label className="field">Tono de cabello<input type="color" value={tone} onInput={e => setTone(e.currentTarget.value)} onChange={e => setTone(e.target.value)} /></label>
+          <label className="field">Escala: {Math.round(scale * 100)}%<input type="range" min="0.7" max="1.4" step="0.01" value={scale} onChange={e => setScale(Number(e.target.value))} /></label>
+          <label className="field">Altura: {Math.round(offset * 100)}%<input type="range" min="-0.3" max="0.3" step="0.01" value={offset} onChange={e => setOffset(Number(e.target.value))} /></label>
+          <button className="outline" onClick={() => { setScale(1); setOffset(0); }}>Restablecer ajuste</button>
         </div>
-
-        <aside className="simulador-panel">
-          <h2>Elige tu estilo</h2>
-
-          <p>
-            Selecciona el corte que deseas probar.
-          </p>
-
-          <div className="simulador-cortes">
-            {haircuts.map((corte) => (
-              <button
-                key={corte.id}
-                className={`simulador-corte ${
-                  String(corteSeleccionado) === String(corte.id)
-                    ? "seleccionado"
-                    : ""
-                }`}
-                onClick={() => seleccionarCorte(corte)}
-              >
-                <span className="corte-nombre">
-                  {corte.nombre || corte.name}
-                </span>
-
-                <span className="corte-descripcion">
-                  {corte.descripcion ||
-                    corte.description ||
-                    "Estilo disponible"}
-                </span>
-              </button>
-            ))}
-          </div>
-
-          <div className="simulador-nota">
-            <strong>Versión inicial</strong>
-
-            <p>
-              Los modelos 3D representan geometrías preliminares.
-            </p>
-          </div>
-        </aside>
-      </section>
-    </main>
-  );
+        <div className="simulador-cortes">{catalog.map(cut => <button key={cut.key} aria-pressed={cut.key === key}
+          className={`simulador-corte ${cut.key === key ? "seleccionado" : ""}`} onClick={() => selectStyle(cut)}>
+          <span className="corte-nombre">{cut.name}</span><span className="corte-descripcion">{cut.description}</span>
+        </button>)}</div>
+        <p className="simulador-nota">Hebras y sombras se preparan al elegir el corte. La altura respeta la frente y protege las cejas. La coronilla se estima; la superposición no elimina el cabello real ni predice un resultado exacto.</p>
+      </aside>
+      <OfflineRaStatus />
+    </section>
+  </main>;
 }

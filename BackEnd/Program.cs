@@ -5,6 +5,7 @@ using BackEnd.Data;
 using BackEnd.Contracts;
 using BackEnd.Services;
 using Microsoft.AspNetCore.Antiforgery;
+using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
@@ -33,6 +34,7 @@ builder.Services.AddRateLimiter(o => o.AddPolicy("auth", ctx => RateLimitPartiti
 builder.Services.AddEndpointsApiExplorer(); builder.Services.AddSwaggerGen();
 builder.Services.ConfigureHttpJsonOptions(o => o.SerializerOptions.PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase);
 var app = builder.Build();
+app.MapReviews();
 app.UseAuthentication();
 app.Use(async (ctx, next) =>
 {
@@ -55,7 +57,11 @@ app.Use(async (ctx, next) =>
     catch (Exception ex)
     { app.Logger.LogError(ex, "Error de solicitud {Path}", ctx.Request.Path); ctx.Response.StatusCode = 500; await ctx.Response.WriteAsJsonAsync(new { message = "No se pudo completar la solicitud. Inténtalo de nuevo." }); }
 });
-app.UseDefaultFiles(); app.UseStaticFiles();
+app.UseDefaultFiles();
+var raContentTypes = new FileExtensionContentTypeProvider();
+raContentTypes.Mappings[".task"] = "application/octet-stream";
+raContentTypes.Mappings[".wasm"] = "application/wasm";
+app.UseStaticFiles(new StaticFileOptions { ContentTypeProvider = raContentTypes });
 app.UseAuthorization(); app.UseRateLimiter();
 if (app.Environment.IsDevelopment()) { app.UseSwagger(); app.UseSwaggerUI(); }
 app.MapGet("/api/auth/token", (HttpContext ctx, IAntiforgery csrf) => Results.Ok(new { token = csrf.GetAndStoreTokens(ctx).RequestToken }));
@@ -198,12 +204,16 @@ management.MapDelete("/photos/{id:int}", async (int id, AppDb db, ClaimsPrincipa
 });
 app.MapPost("/api/bookings", async (BookingRequest r, Reservations reservations, ClaimsPrincipal u) =>
 { var b = await reservations.Create(r, Rules.UserId(u)); return Results.Ok(new { b.Id, b.Total }); }).RequireAuthorization(p => p.RequireRole("Client"));
-app.MapGet("/api/bookings", async (AppDb db, ClaimsPrincipal u) =>
+app.MapGet("/api/bookings", async (AppDb db, ClaimsPrincipal u, int? shopId) =>
 {
     var uid = Rules.UserId(u);
-    return Results.Ok(await db.Bookings.Where(x => x.CustomerId == uid || x.Barber.Shop.OwnerId == uid).OrderBy(x => x.StartUtc).Select(x => new {
+    if (shopId.HasValue && u.IsInRole("Barber")) await Rules.OwnedShop(db, shopId.Value, u);
+    return Results.Ok(await db.Bookings.Where(x => (x.CustomerId == uid || x.Barber.Shop.OwnerId == uid)
+        && (!shopId.HasValue || x.Barber.ShopId == shopId.Value)).OrderBy(x => x.StartUtc).Select(x => new {
         x.Id, x.Status, start = new DateTimeOffset(DateTime.SpecifyKind(x.StartUtc, DateTimeKind.Utc)), end = new DateTimeOffset(DateTime.SpecifyKind(x.EndUtc, DateTimeKind.Utc)),
-        x.HaircutName, x.ServicePrice, x.Total, customer = x.Customer.Name, barber = x.Barber.Name, shop = x.Barber.Shop.Name, x.Barber.ShopId, x.Barber.Shop.TimeZone,
+        x.HaircutName, x.ServicePrice, x.Total, x.CustomerId, customer = x.Customer.Name, barber = x.Barber.Name, shop = x.Barber.Shop.Name, x.Barber.ShopId, x.Barber.Shop.TimeZone,
+        clientReviewId = db.Reviews.Where(r => r.BookingId == x.Id && r.Direction == Review.ClientToShop).Select(r => (int?)r.Id).FirstOrDefault(),
+        shopReviewId = db.Reviews.Where(r => r.BookingId == x.Id && r.Direction == Review.ShopToClient).Select(r => (int?)r.Id).FirstOrDefault(),
         items = x.Items.Select(i => new { i.Name, i.Quantity, i.UnitPrice }) }).ToListAsync());
 }).RequireAuthorization();
 app.MapPut("/api/bookings/{id:int}/status", async (int id, StatusRequest r, Reservations reservations, ClaimsPrincipal u) =>

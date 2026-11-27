@@ -34,7 +34,7 @@ function Auth({ close, done }) {
         <button className="close" onClick={close} aria-label="Cerrar">
           ×
         </button>
-        <p className="eyebrow">BIENVENIDO A ENTRECORTES</p>
+        <p className="eyebrow">BIENVENIDO A K'iin BARBER</p>
         <h2 id="auth-title">
           {register ? "Crea tu cuenta" : "Qué gusto verte"}
         </h2>

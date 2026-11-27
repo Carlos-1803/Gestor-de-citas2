@@ -41,6 +41,10 @@
 .account {
   font-size: 13px;
 }
+.topbar .account-name {
+  color: #ffffff;
+  font-weight: 500;
+}
 .nav {
   font-size: 13px;
   padding: 9px 4px;
@@ -773,3 +777,25 @@ footer small {
     min-width: 130px;
   }
 }
+
+/* Sucursales y reseñas: conservar la paleta y los paneles existentes. */
+.branch-nav { display: grid; gap: 4px; max-width: 220px; font-size: 12px; color: #d6b372; }
+.branch-nav select { padding: 8px; }
+.branch-card { display: flex; flex-direction: column; gap: 12px; }
+.branch-card .primary { margin-top: auto; }
+.review-list { margin-top: 24px; }
+.review-summary { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 18px; }
+.review-stars { color: #9a733e; letter-spacing: 2px; white-space: nowrap; }
+.review-item { border-top: 1px solid #d9d7cc; padding: 18px 0; }
+.review-item .section-head { margin-bottom: 8px; gap: 12px; }
+.review-comment { white-space: pre-wrap; overflow-wrap: anywhere; }
+.review-rating { margin: 16px 0; border: 0; padding: 0; }
+.rating-options { display: flex; gap: 10px; margin: 8px 0; }
+.rating-options label { position: relative; cursor: pointer; color: #777; font-size: 32px; line-height: 1.4; }
+.rating-options .selected { color: #9a733e; }
+.rating-options input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.rating-options label:focus-within { outline: 2px solid #bc883a; outline-offset: 3px; border-radius: 4px; }
+.review-error { color: #a54137; margin: 12px 0; }
+.modal textarea { width: 100%; resize: vertical; padding: 12px; border: 1px solid #d9d7cc; border-radius: 5px; background: #fff; color: #242522; }
+.modal .actions { margin-top: 18px; }
+@media (max-width: 700px) { .branch-nav { max-width: 100%; width: 100%; } }

@@ -13,6 +13,6 @@ createRoot(document.getElementById("root")).render(
 
 if (import.meta.env.PROD && window.isSecureContext && "serviceWorker" in navigator) {
   navigator.serviceWorker.register("/sw.js").catch((error) => {
-    console.warn("EntreCortes no pudo preparar el modo sin conexión.", error);
+    console.warn("K'iin BARBER no pudo preparar el modo sin conexión.", error);
   });
 }
