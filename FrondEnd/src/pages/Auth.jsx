@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { finishLogout } from "../pwa/sesion";
 import { api } from "../api";
 import Field from "../components/Field";
 function Auth({ close, done }) {
@@ -11,6 +12,7 @@ function Auth({ close, done }) {
     setError("");
     const data = Object.fromEntries(new FormData(e.currentTarget));
     try {
+      await finishLogout();
       done(
         await api("/auth/" + (register ? "register" : "login"), {
           method: "POST",

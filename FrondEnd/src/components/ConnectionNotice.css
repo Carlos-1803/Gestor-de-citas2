@@ -8,3 +8,8 @@
   text-align: center;
   font-weight: 600;
 }
+.connection-notice button { margin-inline-start: 8px; }
+.connection-notice[data-state="ready"] { background: #e4ede1; color: #253f2b; }
+@media (min-width: 651px) {
+  .connection-notice[data-state="preparing"], .connection-notice[data-state="ready"] { display: none; }
+}

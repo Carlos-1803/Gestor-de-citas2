@@ -1,5 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { api, money, dateLabel } from "../api";
+import { addManagementChange, agendaEvent, localRequests, watchQueue } from "../pwa/reservas";
+import { accountList, accountSnapshot, profileFields } from "../pwa/cuentas";
+import ShopPhoto from "../pwa/ShopPhoto";
+import LocalBookings from "../pwa/LocalBookings";
+import { emptyTeam, managementRoute, managementView, serverId } from "../pwa/gestion";
 import Field from "../components/Field";
 const initialShop = {
   name: "",
@@ -10,74 +15,91 @@ const initialShop = {
   longitude: -89.5926,
   timeZone: "America/Merida",
 };
-function Manage({ open, notify }) {
-  const [shops, setShops] = useState([]);
-  const [selected, setSelected] = useState("");
-  const [shop, setShop] = useState(initialShop);
-  const [team, setTeam] = useState(null);
-  const [photos, setPhotos] = useState([]);
-  const [cuts, setCuts] = useState([]);
-  const [barberId, setBarberId] = useState("");
-  const [tab, setTab] = useState("profile");
-  const [busy, setBusy] = useState(false);
-  const loadShops = useCallback(
-    () =>
-      api("/manage/shops")
-        .then(setShops)
-        .catch((e) => notify(e.message)),
-    [notify],
-  );
-  const loadTeam = useCallback(
-    () =>
-      selected
-        ? Promise.all([
-            api(`/manage/shops/${selected}/team`),
-            api(`/shops/${selected}`),
-          ])
-            .then(([t, p]) => {
-              setTeam(t);
-              setPhotos(p.photos);
-            })
-            .catch((e) => notify(e.message))
-        : Promise.resolve(),
-    [selected, notify],
-  );
+function Manage({ open, notify, owner }) {
+  const [shopRows, setShopRows] = useState([]);
+  const [choice,setSelected] = useState("");
+  const selected = choice ? String(serverId(owner,Number(choice))) : "";
+  const [edit, setEdit] = useState(null);
+  const [details,setDetails] = useState(null);
+  const [rows,setRows] = useState(() => localRequests(owner,"Barber"));
+  const [cuts,setCuts] = useState([]);
+  const [employee,setBarberId] = useState("");
+  const barberId = employee ? String(serverId(owner,Number(employee))) : "";
+  const [tab,setTab] = useState("profile");
+  const [busy,setBusy] = useState(false);
+
+  useEffect(() => watchQueue(() => setRows(localRequests(owner,"Barber"))),[owner]);
   useEffect(() => {
-    loadShops();
-    api("/haircuts")
-      .then(setCuts)
-      .catch((e) => notify(e.message));
-  }, [loadShops, notify]);
+    let version = 0;
+    async function load() {
+      const turn = ++version;
+      try {
+        const [list,catalog] = await Promise.all([accountList(owner,"profile"),accountList(owner,"catalog")]);
+        if (version !== turn) return;
+        setShopRows(list);
+        setCuts(catalog);
+      } catch (error) { if (version === turn) notify(error.message); }
+    }
+    load();
+    const unlisten = listenForRefresh(owner,load);
+    return () => { ++version; unlisten(); };
+  }, [owner,notify]);
   useEffect(() => {
-    loadTeam();
-  }, [loadTeam]);
+    if (Number(selected) <= 0) return;
+    let version = 0;
+    async function load() {
+      const turn = ++version;
+      try {
+        const [team,photos] = await Promise.all([
+          accountList(owner,"team:"+selected), accountList(owner,"photos:"+selected),
+        ]);
+        if (turn === version) setDetails({id:selected,team,photos});
+      } catch (error) { if (turn === version) notify(error.message); }
+    }
+    load();
+    const unlisten = listenForRefresh(owner,load);
+    return () => { ++version; unlisten(); };
+  }, [owner,selected,notify]);
+
+  const data = details?.id === selected ? details : null;
+  const teamBase = data?.team || (Number(selected) < 0 ? emptyTeam() : accountSnapshot(owner,"team:"+selected,"Barber"));
+  const photosBase = data?.photos || accountSnapshot(owner,"photos:"+selected,"Barber") || [];
+  const view = managementView(owner,selected,shopRows,teamBase,photosBase,rows);
+  const { shops,team,photos } = view;
+  const saved = shops.find(s => s.id === Number(selected)) || initialShop;
+  const shop = edit?.value || saved;
+  function setShop(value) { setEdit({base: edit?.base || profileFields(saved), value}); }
+
+  function write(action, target, body) {
+    if (!navigator.locks) {
+      const {path,method} = managementRoute(action,Number(target));
+      return api(path,{method,body});
+    }
+    return addManagementChange(owner,action,Number(selected),Number(target),body,view,
+      action === "editShop" ? edit?.base : undefined);
+  }
   async function action(fn) {
     setBusy(true);
     try {
       await fn();
-      notify("Cambios guardados.");
-      await loadTeam();
-    } catch (e) {
-      notify(e.message);
-    } finally {
-      setBusy(false);
-    }
+      if (!navigator.locks) window.dispatchEvent(new Event(agendaEvent));
+      if (!navigator.locks) notify("Cambios guardados.");
+      return true;
+    } catch (error) { notify(error.message); return false; }
+    finally { setBusy(false); }
   }
   function selectShop(id) {
     setSelected(id);
-    setShop(shops.find((s) => s.id === Number(id)) || initialShop);
-    setTeam(null);
+    setEdit(null);
     setBarberId("");
   }
   async function saveShop(e) {
     e.preventDefault();
+    if (selected && JSON.stringify(profileFields(shop)) === JSON.stringify(edit?.base || profileFields(saved))) return;
     await action(async () => {
-      const result = await api(
-        "/manage/shops" + (selected ? `/${selected}` : ""),
-        { method: selected ? "PUT" : "POST", body: shop },
-      );
-      await loadShops();
-      if (result?.id) setSelected(String(result.id));
+      const result = await write(selected ? "editShop" : "addShop", Number(selected), profileFields(shop));
+      if (!selected && result?.id) setSelected(String(result.id));
+      setEdit(null);
     });
   }
   const barber = team?.barbers.find((b) => b.id === Number(barberId));
@@ -92,6 +114,7 @@ function Manage({ open, notify }) {
           </button>
         )}
       </div>
+      <LocalBookings owner={owner} role="Barber" />
       <div className="toolbar">
         <Field label="Establecimiento">
           <select value={selected} onChange={(e) => selectShop(e.target.value)}>
@@ -187,10 +210,7 @@ function Manage({ open, notify }) {
                     const form = e.currentTarget;
                     const body = new FormData(form);
                     action(async () => {
-                      await api(`/manage/shops/${selected}/photos`, {
-                        method: "POST",
-                        body,
-                      });
+                      await write("addPhoto", selected, body);
                       form.reset();
                     });
                   }}
@@ -216,7 +236,7 @@ function Manage({ open, notify }) {
                 <div className="gallery">
                   {photos.map((p) => (
                     <figure key={p.id}>
-                      <img src={p.url} alt={p.kind} />
+                      <ShopPhoto photo={p} owner={owner} />
                       <figcaption>
                         {p.kind}{" "}
                         <button
@@ -224,9 +244,7 @@ function Manage({ open, notify }) {
                           className="text-button"
                           onClick={() =>
                             action(() =>
-                              api(`/manage/photos/${p.id}`, {
-                                method: "DELETE",
-                              }),
+                              write("deletePhoto", p.id),
                             )
                           }
                         >
@@ -261,10 +279,7 @@ function Manage({ open, notify }) {
                     const f = e.currentTarget;
                     const name = new FormData(f).get("name");
                     action(async () => {
-                      const b = await api(`/manage/shops/${selected}/barbers`, {
-                        method: "POST",
-                        body: { name, active: true },
-                      });
+                      const b = await write("addBarber", selected, { name, active: true });
                       setBarberId(String(b.id));
                       f.reset();
                     });
@@ -298,13 +313,10 @@ function Manage({ open, notify }) {
                       e.preventDefault();
                       const f = new FormData(e.currentTarget);
                       action(() =>
-                        api(`/manage/barbers/${barber.id}`, {
-                          method: "PUT",
-                          body: {
+                        write("editBarber", barber.id, {
                             name: f.get("name"),
                             active: f.get("active") === "on",
-                          },
-                        }),
+                          }),
                       );
                     }}
                   >
@@ -343,15 +355,12 @@ function Manage({ open, notify }) {
                       e.preventDefault();
                       const f = new FormData(e.currentTarget);
                       action(() =>
-                        api(`/manage/barbers/${barber.id}/offerings`, {
-                          method: "POST",
-                          body: {
+                        write("service", barber.id, {
                             haircutId: Number(f.get("haircutId")),
                             price: Number(f.get("price")),
                             minutes: Number(f.get("minutes")),
                             active: true,
-                          },
-                        }),
+                          }),
                       );
                     }}
                   >
@@ -407,10 +416,7 @@ function Manage({ open, notify }) {
                           className="outline small"
                           onClick={() =>
                             action(() =>
-                              api(`/manage/barbers/${barber.id}/offerings`, {
-                                method: "POST",
-                                body: { ...o, active: !o.active },
-                              }),
+                              write("service", barber.id, { ...o, active: !o.active }),
                             )
                           }
                         >
@@ -436,10 +442,7 @@ function Manage({ open, notify }) {
                   busy={busy}
                   save={(periods) =>
                     action(() =>
-                      api(`/manage/barbers/${barber.id}/periods`, {
-                        method: "PUT",
-                        body: periods,
-                      }),
+                      write("schedule", barber.id, periods),
                     )
                   }
                 />
@@ -454,13 +457,10 @@ function Manage({ open, notify }) {
                       e.preventDefault();
                       const f = new FormData(e.currentTarget);
                       action(() =>
-                        api(`/manage/barbers/${barber.id}/blocks`, {
-                          method: "POST",
-                          body: {
+                        write("addBlock", barber.id, {
                             start: new Date(f.get("start")).toISOString(),
                             end: new Date(f.get("end")).toISOString(),
-                          },
-                        }),
+                          }),
                       );
                     }}
                   >
@@ -489,9 +489,7 @@ function Manage({ open, notify }) {
                           disabled={busy}
                           onClick={() =>
                             action(() =>
-                              api(`/manage/blocks/${b.id}`, {
-                                method: "DELETE",
-                              }),
+                              write("deleteBlock", b.id),
                             )
                           }
                         >
@@ -519,10 +517,7 @@ function Manage({ open, notify }) {
               busy={busy}
               save={(p) =>
                 action(() =>
-                  api(`/manage/shops/${selected}/products`, {
-                    method: "POST",
-                    body: p,
-                  }),
+                  write("addProduct", selected, p),
                 )
               }
             />
@@ -533,7 +528,7 @@ function Manage({ open, notify }) {
                 busy={busy}
                 save={(r) =>
                   action(() =>
-                    api(`/manage/products/${p.id}`, { method: "PUT", body: r }),
+                    write("editProduct", p.id, r),
                   )
                 }
               />
@@ -542,6 +537,19 @@ function Manage({ open, notify }) {
         ))}
     </section>
   );
+}
+function listenForRefresh(owner,load) {
+  const changed = event => {
+    if (event.newValue === null && event.key?.startsWith("entrecortes:reserva:barbero:"+owner+":")) load();
+  };
+  window.addEventListener("storage",changed);
+  window.addEventListener("online",load);
+  window.addEventListener(agendaEvent,load);
+  return () => {
+    window.removeEventListener("storage",changed);
+    window.removeEventListener("online",load);
+    window.removeEventListener(agendaEvent,load);
+  };
 }
 function Schedule({ barber, periods, zone, save, busy }) {
   const [rows, setRows] = useState(
@@ -640,16 +648,18 @@ function ProductEditor({ product, save, busy }) {
   return (
     <form
       className="product-editor"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        const f = new FormData(e.currentTarget);
-        save({
+        const form = e.currentTarget;
+        const f = new FormData(form);
+        const stored = await save({
           name: f.get("name"),
           description: f.get("description"),
           price: Number(f.get("price")),
           stock: Number(f.get("stock")),
           active: f.get("active") === "on",
         });
+        if (stored && !product) form.reset();
       }}
     >
       <h3>{product ? product.name : "Nuevo producto"}</h3>

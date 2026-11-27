@@ -1,23 +1,53 @@
+import LocalBookings from "../pwa/LocalBookings";
+import { accountList } from "../pwa/cuentas";
+import { addAccountChange, agendaEvent, localRequests, watchQueue } from "../pwa/reservas";
 import Field from "../components/Field";
 import { useCallback, useEffect, useState } from "react";
 import { api, money, states, dateLabel } from "../api";
 function Bookings({ user, notify }) {
-  const [items, setItems] = useState(null);
+  const [saved, setItems] = useState(null);
+  const [queue, setQueue] = useState(() => localRequests(user.id, user.role));
+  useEffect(() => watchQueue(() => setQueue(localRequests(user.id, user.role))), [user.id, user.role]);
+  const items = saved?.map(item => {
+    const change = queue.filter(row => row.kind === "status" && row.target === item.id &&
+      ["pendiente", "enviando"].includes(row.state)).at(-1);
+    return change ? {...item, status: change.body.status, localChange: true} : item;
+  }) ?? null;
   const [day, setDay] = useState("");
   const [busy, setBusy] = useState(false);
   const load = useCallback(
     () =>
-      api("/bookings")
+      accountList(user.id, "status", user.role)
         .then(setItems)
-        .catch((e) => notify(e.message)),
-    [notify],
+        .catch((e) => {
+          setItems([]);
+          if (!(e instanceof TypeError)) notify(e.message);
+        }),
+    [notify, user.role, user.id],
   );
   useEffect(() => {
     load();
+    window.addEventListener("online", load);
+    window.addEventListener(agendaEvent, load);
+    function fromOtherTab(event) {
+      if (event.key?.startsWith("entrecortes:reserva:") && event.newValue === null && navigator.onLine) load();
+    }
+    window.addEventListener("storage", fromOtherTab);
+    return () => {
+      window.removeEventListener("online", load);
+      window.removeEventListener(agendaEvent, load);
+      window.removeEventListener("storage", fromOtherTab);
+    };
   }, [load]);
   async function change(id, status) {
     setBusy(true);
     try {
+      if (["Client","Barber"].includes(user.role) && navigator.locks) {
+        const item = items.find(b => b.id === id);
+        await addAccountChange(user.id, "status", id, item.status, {status},
+          `Cita #${id} · ${states[item.status]} → ${states[status]}`, user.role);
+        return;
+      }
       await api(`/bookings/${id}/status`, { method: "PUT", body: { status } });
       await load();
     } catch (e) {
@@ -52,6 +82,7 @@ function Bookings({ user, notify }) {
           Ver todas
         </button>
       </div>
+      <LocalBookings owner={user.id} role={user.role} />
       {user.role === "Barber" && (
         <MonthCalendar items={items || []} choose={setDay} />
       )}
@@ -64,7 +95,7 @@ function Bookings({ user, notify }) {
           {visible.map((b) => (
             <article key={b.id} className="panel appointment">
               <div>
-                <span className={"status " + b.status}>{states[b.status]}</span>
+                <span className={"status " + b.status}>{states[b.status]}{b.localChange && " · por sincronizar"}</span>
                 <h3>{dateLabel(b.start, b.timeZone)}</h3>
                 <p>
                   {b.shop} · {b.barber}

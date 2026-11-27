@@ -773,3 +773,128 @@ footer small {
     min-width: 130px;
   }
 }
+
+@media (max-width: 650px) {
+  .topbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    min-height: 0;
+    gap: 8px 10px;
+    padding: 10px clamp(12px, 4vw, 22px) 4px;
+  }
+  .topbar .brand {
+    grid-area: 1 / 1;
+    justify-self: start;
+    gap: 6px;
+    min-height: 44px;
+    padding: 0 !important;
+    background: none !important;
+    border: 0 !important;
+    box-shadow: none !important;
+    font-size: clamp(20px, 5.5vw, 24px);
+  }
+  .topbar .brand small { margin-top: 5px; font-size: 8px; letter-spacing: 0.85px; }
+  .topbar .brand .gold { color: #c5a05d; }
+  .topbar > .primary, .topbar .account { grid-area: 1 / 2; justify-self: end; }
+  .topbar .account { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px; min-width: 0; }
+  .topbar .account > span { color: #fff8dc; max-width: none; overflow: visible; overflow-wrap: anywhere; text-align: end; font-size: 12px; line-height: 1.25; }
+  .topbar > .primary, .topbar .account button {
+    min-height: 44px;
+    max-width: 39vw;
+    padding: 6px 9px !important;
+    font-size: 12px;
+    line-height: 1.25;
+  }
+  .topbar nav {
+    grid-column: 1 / -1;
+    order: initial;
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 2px;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-top: 1px solid #776548 !important;
+  }
+  .topbar .nav {
+    min-height: 44px;
+    padding: 5px 3px !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: 0 !important;
+    border-bottom: 2px solid transparent !important;
+    border-radius: 0 !important;
+    font-size: clamp(12px, 3.3vw, 14px);
+    line-height: 1.25;
+  }
+  .topbar nav:has(> :nth-child(4)) { grid-template-columns: .9fr 1.2fr .85fr 1.05fr; }
+  .topbar .nav[aria-current="page"] { color: #f1d590 !important; border-bottom-color: #d4af37 !important; }
+
+  main.pwa-flow { padding: 16px clamp(12px, 4vw, 22px) 36px; }
+  .pwa-flow .hero { min-height: auto; margin-bottom: 30px; }
+  .pwa-flow .hero-copy { padding: clamp(20px, 6vw, 26px); }
+  .pwa-flow .hero h1 { margin-bottom: 14px; font-size: clamp(33px, 8.5vw, 39px); }
+  .pwa-flow .hero-copy > p:not(.eyebrow) { margin-bottom: 18px; }
+  .pwa-flow .hero-art { min-height: 130px; }
+  .pwa-flow .hero-art .scissors { font-size: 108px; }
+  .pwa-flow .hero-art .ring { width: 118px; height: 118px; }
+  .pwa-flow .art-label { bottom: 12px; right: 14px; }
+  .pwa-flow .art-number { top: 12px; left: 14px; }
+  .pwa-flow .section-head { align-items: start; gap: 12px; margin-bottom: 16px; }
+  .pwa-flow .section-head > .field, .pwa-flow .search { flex: 1 1 100%; }
+  .pwa-flow .panel { padding: clamp(14px, 4vw, 20px); overflow-wrap: anywhere; min-width: 0; }
+  .pwa-flow .panel h2 { margin-bottom: 14px; }
+  .pwa-flow .profile-heading { padding: 12px 0 18px; }
+  .pwa-flow .detail-layout, .pwa-flow .manage-columns { grid-template-columns: minmax(0,1fr); gap: 16px; }
+  .pwa-flow .detail-layout { box-shadow: none !important; overflow: visible; }
+  .pwa-flow .detail-layout > div:first-child { background: transparent !important; }
+  .pwa-flow .product-row, .pwa-flow .list-row { flex-wrap: wrap; gap: 8px 14px; }
+  .pwa-flow .shop-card { padding: 0 !important; text-align: left; background: #fffdf8 !important; color: #252820 !important; }
+  .pwa-flow .shop-cover { height: clamp(140px, 42vw, 180px); }
+  .pwa-flow .shop-card .chip { color: #38513c; }
+  .pwa-flow .form-row { display: grid; grid-template-columns: minmax(0,1fr); gap: 12px; }
+  .pwa-flow .form-row > .field, .pwa-flow .field, .pwa-flow fieldset { min-width: 0; }
+  .pwa-flow input, .pwa-flow select, .modal input, .modal select { min-width: 0; max-width: 100%; font-size: 16px; }
+  .pwa-flow button, .pwa-flow .checkbox, .modal button { min-height: 44px; }
+  .pwa-flow .toolbar { gap: 12px; margin-bottom: 16px; }
+  .pwa-flow .tabs { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 3px; }
+  .pwa-flow .tabs button { padding: 5px 3px !important; font-size: 12px; line-height: 1.25; }
+  .pwa-flow .tabs .active { background: #f7f3e6 !important; color: #294637 !important; border-color: #947236 !important; }
+  .pwa-flow .calendar-grid { grid-template-columns: repeat(7,minmax(0,1fr)); gap: 2px; }
+  .pwa-flow .calendar-grid button {
+    min-width: 0;
+    min-height: 44px;
+    padding: 3px 1px !important;
+    background: #faf9f2 !important; color: #334635 !important;
+    border: 1px solid #d7dbce !important; box-shadow: none; text-align: center; line-height: 1.25;
+  }
+  .pwa-flow .calendar-grid .has-citas { background: #294637 !important; color: white !important; }
+  .pwa-flow .calendar-grid small { font-size: 9px; color: inherit; }
+  .pwa-flow .schedule-row {
+    grid-template-columns: minmax(0,1fr) minmax(0,1fr) 44px;
+    grid-template-areas: "dia dia quitar" "inicio fin quitar";
+    gap: 6px; padding: 8px 0; border-bottom: 1px solid #deded3;
+  }
+  .pwa-flow .schedule-row select { grid-area: dia; }
+  .pwa-flow .schedule-row input:first-of-type { grid-area: inicio; }
+  .pwa-flow .schedule-row input:last-of-type { grid-area: fin; }
+  .pwa-flow .schedule-row button { grid-area: quitar; align-self: center; padding: 4px !important; }
+  .pwa-flow .appointment .actions { flex-wrap: wrap; gap: 8px; }
+  .pwa-flow .appointment .actions button { flex: 1 1 auto; }
+  .pwa-flow fieldset label { display: grid; gap: 4px; margin-bottom: 10px; }
+  .pwa-flow .agenda, .pwa-flow .calendar { margin-top: 14px; }
+  .overlay { padding: 10px; }
+  .modal { min-width: 0; padding: 22px 16px 16px; max-height: calc(100dvh - 20px); }
+  .modal h2 { padding-right: 36px; }
+  .modal .close { top: 5px; right: 6px; width: 44px; height: 44px; padding: 0 !important; }
+  .notice { position: static; align-items: center; padding: 3px 4vw; }
+  .notice button { padding: 0 !important; min-width: 40px; min-height: 40px; border: 0 !important; color: #294637 !important; }
+  #root .connection-notice:not(:empty) { position: static; padding: 6px 12px; font-size: 13px; line-height: 1.35; }
+  .pwa-flow .service-description { margin-top: -8px; overflow-wrap: anywhere; color: #504d44; }
+  .pwa-flow .booking-products { padding: 10px 0; border-block: 1px solid #e1e1d7; }
+  .pwa-flow .booking-products summary, .pwa-flow .pwa-queue summary { padding-block: 10px; cursor: pointer; font-weight: 600; }
+  .pwa-flow .pwa-queue { margin-block: 8px 16px; color: #294637; }
+  .pwa-flow .pwa-queue .panel { margin-top: 8px; }
+}

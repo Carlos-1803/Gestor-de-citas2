@@ -1,0 +1,35 @@
+.topbar:has(.install-menu) { position: relative; }
+.install-menu { position: absolute; z-index: 9; right: max(3px, calc(2.5% - 22px)); top: 50%; transform: translateY(-50%); }
+.install-menu > summary {
+  list-style: none; display: grid; place-items: center; width: 44px; height: 44px;
+  cursor: pointer; border-radius: 7px; color: #fff8dc; font: bold 24px/1 sans-serif;
+}
+.install-menu > summary::-webkit-details-marker { display: none; }
+.install-menu > summary:hover, .install-menu[open] > summary { background: #514538; }
+.install-menu > summary:focus-visible { outline: 2px solid #e4c788; outline-offset: -2px; }
+.install-options {
+  position: absolute; right: 0; top: calc(100% + 3px); width: min(260px, calc(100vw - 24px));
+  padding: 6px; border: 1px solid #c8c0b2; border-radius: 9px; background: #fffdf8;
+  color: #253d30; box-shadow: 0 7px 24px #241c1830;
+}
+.topbar .install-options > :is(button,a) {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 44px;
+  padding: 8px 10px !important; border: 0 !important; border-radius: 5px !important; box-shadow: none !important;
+  background: transparent !important; color: #253d30 !important; text-decoration: none; text-align: start; line-height: 1.35;
+  font-family: inherit; font-size: 14px; font-weight: 600;
+}
+.topbar .install-options > :is(button,a):is(:hover,:focus-visible) { background: #edf0e9 !important; }
+.install-options p { margin: 5px 10px 8px; font-size: 13px; line-height: 1.45; }
+@media (min-width: 651px) and (max-width: 950px) {
+  .topbar:has(.install-menu) { padding-right: max(55px, 7%); }
+  .install-menu { top: 18px; transform: none; }
+}
+@media (max-width: 650px) {
+  .topbar:has(.install-menu) { grid-template-columns: auto minmax(0,1fr) 44px; column-gap: 5px; }
+  .install-menu { position: relative; right: auto; top: auto; transform: none; grid-area: 1 / 3; }
+  .topbar:has(.install-menu) > .primary { max-width: 100%; }
+}
+
+@media (max-width: 365px) {
+  .topbar:has(.install-menu) .account { grid-template-columns: minmax(0,1fr); justify-items: end; gap: 2px; }
+}

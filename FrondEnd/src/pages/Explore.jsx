@@ -1,15 +1,23 @@
 import { useEffect, useState } from "react";
-import { api } from "../api";
+import { serverOnline, watchConnection } from "../pwa/red";
+import { readPublic } from "../pwa/catalogo";
 function Explore({ open, notify }) {
   const [shops, setShops] = useState(null);
   const [query, setQuery] = useState("");
   useEffect(() => {
-    api("/shops")
-      .then(setShops)
-      .catch((e) => {
-        notify(e.message);
-        setShops([]);
-      });
+    let version = 0;
+    async function load() {
+      const request = ++version;
+      try {
+        const list = await readPublic("/shops");
+        if (request === version) setShops(list);
+      } catch (error) {
+        if (request === version) { notify(error.message); setShops([]); }
+      }
+    }
+    load();
+    const stop = watchConnection(() => { if (serverOnline()) load(); });
+    return () => { ++version; stop(); };
   }, [notify]);
   const visible = shops?.filter((s) =>
     (s.name + " " + s.address).toLowerCase().includes(query.toLowerCase()),

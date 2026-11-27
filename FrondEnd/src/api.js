@@ -1,3 +1,4 @@
+import { serverRead } from "./pwa/red.js";
 let csrf;
 export async function api(path, options = {}) {
   const method = options.method || "GET";
@@ -8,7 +9,8 @@ export async function api(path, options = {}) {
   }
   const form = options.body instanceof FormData;
   
-  let res = await fetch("/api" + path, {
+  const request = method === "GET" ? serverRead : fetch;
+  let res = await request("/api" + path, {
     ...options,
     headers: {
       ...(form ? {} : { "Content-Type": "application/json" }),
