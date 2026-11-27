@@ -37,7 +37,7 @@ jobs:
       - run: npm --prefix FrondEnd run build
       - run: dotnet build BackEnd --configuration Release
       - run: dotnet run --project BackEnd --configuration Release --no-build -- --migrate
-      - name: Integration checks
+      - name: Install integration client
         run: |
           sudo apt-get update
           sudo apt-get install -y mariadb-client
@@ -47,14 +47,38 @@ jobs:
           port=3306
           user=gestor
           password=test-only-password
+          # Solo para el contenedor MariaDB desechable de CI, sin TLS.
+          skip-ssl
           EOF
           chmod 600 /tmp/reviews-db.cnf
+      - name: Integration checks
+        shell: bash
+        run: |
+          set -euo pipefail
           dotnet run --project BackEnd --configuration Release --no-build --no-launch-profile --urls http://127.0.0.1:5191 > /tmp/api.log 2>&1 &
           API_PID=$!
-          trap 'kill "$API_PID" || true' EXIT
+          trap 'kill "$API_PID" 2>/dev/null || true' EXIT
+          READY=0
           for attempt in $(seq 1 40); do
-            if curl -fsS http://127.0.0.1:5191/api/health; then break; fi
+            if ! kill -0 "$API_PID" 2>/dev/null; then
+              cat /tmp/api.log
+              exit 1
+            fi
+            if curl -fsS http://127.0.0.1:5191/api/health; then READY=1; break; fi
             sleep 1
           done
-          python tests/integration.py --url http://127.0.0.1:5191 || { cat /tmp/api.log; exit 1; }
-          python tests/integration_reviews.py --url http://127.0.0.1:5191 --db-config /tmp/reviews-db.cnf --database gestor_test || { cat /tmp/api.log; exit 1; }
+          if [ "$READY" -ne 1 ]; then cat /tmp/api.log; exit 1; fi
+          mariadb --defaults-extra-file=/tmp/reviews-db.cnf --database=gestor_test --batch -e 'SELECT VERSION(); SELECT COUNT(*) AS applied_migrations FROM __EFMigrationsHistory;'
+          python3 -u tests/integration.py --url http://127.0.0.1:5191 2>&1 | tee /tmp/integration.log
+          python3 -u tests/integration_reviews.py --url http://127.0.0.1:5191 --db-config /tmp/reviews-db.cnf --database gestor_test 2>&1 | tee /tmp/integration-reviews.log
+      - name: Preserve integration diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-diagnostics
+          if-no-files-found: ignore
+          retention-days: 7
+          path: |
+            /tmp/api.log
+            /tmp/integration.log
+            /tmp/integration-reviews.log
